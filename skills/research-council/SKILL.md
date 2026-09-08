@@ -24,11 +24,12 @@ retained task contract passes.
 - Run `scripts/triage.py` first (S-2). If it says `small`, stop and tell the user why in one line.
 
 ## Procedure
-Steps S-2 to S-11 in `docs/spec-v1.md` add one numbered step each. Until they land, this skill
-only validates its own package:
+Steps S-3 to S-11 in `docs/spec-v1.md` add one numbered step each as they land.
 
-1. Confirm the package is valid: `python3 scripts/validate_skill.py skills/research-council` prints `OK`.
-2. Tell the user which steps are implemented (see the Status table in `docs/spec-v1.md`).
+1. **Triage.** Read `references/triage.md`. Answer the five questions from the request text, run
+   `scripts/triage.py --answers -`. Exit 3 means small: tell the user in one line which size
+   signals were missing, then handle the task directly without this skill. Exit 0: continue.
+2. (S-3 goal capture, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
 
 ## Outputs
 - `AGI_Research/runs/<goal_id>/FINDINGS.md`
