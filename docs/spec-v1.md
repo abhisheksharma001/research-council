@@ -158,4 +158,5 @@ Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evi
 | step | state | learned |
 |---|---|---|
 | S-1 | done 2026-09-09 | Minimal YAML parser silently flattened two-level metadata; caught by the nested-metadata test, fixed by rejecting any nested key deeper than one level or with an empty value. Break tests: removing the lowercase rule fails exactly test_uppercase_name_rejected; removing the directory-match rule fails exactly test_name_must_match_directory. Register edit was lost once because a string replace missed silently and the commit went through on an unrelated pyc change: replace scripts now assert the match. |
-| S-2..S-12 | todo | |
+| S-2 | done 2026-09-09 (PR #1) | Kept the model out of the script: the agent answers five yes/no questions, the script applies the rule. This makes triage testable and prevents the LLM from talking itself into 'big'. Exit code 3 for small so the skill can branch on it without parsing JSON. Break tests: q4 shortcut removal fails 2 named tests; MIN_YES=1 fails exactly one. No CI on the repo yet, so 'wait for CI' was skipped; tests ran locally. |
+| S-3..S-12 | todo | |
