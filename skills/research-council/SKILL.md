@@ -34,7 +34,12 @@ Steps S-3 to S-11 in `docs/spec-v1.md` add one numbered step each as they land.
    `scripts/goal.py new --root <workspace> --from <json>`. Exit 1 lists every missing field:
    fix them with the user, do not guess. The printed path is the run folder for every later
    step. Change the goal only with `scripts/goal.py revise --reason "..."`.
-3. (S-4 budget and journal, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
+3. **Budget and journal.** Read `references/budget.md`. After every fetch, read, write,
+   subagent spawn or command, run `scripts/journal.py add --run <run> --kind <kind>
+   --cost_usd <float|null> --detail "..."`. Before every subagent spawn and after every
+   ten actions run `scripts/budget.py check --run <run>`. Exit 2 means a cap is exceeded:
+   stop, show the user the printed line, finish with what exists. Never edit the budget.
+4. (S-5 evidence and claims, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
 
 ## Outputs
 - `AGI_Research/runs/<goal_id>/FINDINGS.md`
