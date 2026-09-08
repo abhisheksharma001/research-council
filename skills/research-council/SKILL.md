@@ -46,7 +46,14 @@ Steps S-3 to S-11 in `docs/spec-v1.md` add one numbered step each as they land.
    exit 1 and nothing is written. Before writing findings run
    `scripts/claims.py list --run <run> --unverified`: each line printed is reported as
    unverified, never as a finding.
-5. (S-6 council roles, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
+5. **Council.** Read `references/council.md`. Spawn the four roles in `agents/` in the
+   order it gives for the current stage: Generation writes `hypotheses.json`, Reflection
+   returns objections you save as `objections.json`, Ranking returns one blinded pair's
+   winner, Meta-review writes `meta.md` and says continue or stop. Before every spawn run
+   `scripts/budget.py check`; after it, `scripts/journal.py add --kind subagent`. Then list
+   the run folder: a role that touched any file other than its own is a violation, delete
+   the file and log a note. No role gets Bash, the library, or the promote script.
+6. (S-7 ranking script, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
 
 ## Outputs
 - `AGI_Research/runs/<goal_id>/FINDINGS.md`
