@@ -1,0 +1,59 @@
+{
+  "request_text": "From about 04:00 UTC on one day the voice agent stopped calling the repair-order lookup tool and told 774 callers 'our repair order system is down'. The same line fired on 75 calls three weeks earlier. Find out whether the tool was failing or had been switched off, and what the agent should do next time.",
+  "observations": [
+    "Repair-order search tool calls fell from 1,738 to 50 between the day before and the outage day; full-record fetches fell from 724 to 18.",
+    "Status-lookup calls marked resolved fell from 437 to 20 while partial rose from 107 to 440.",
+    "The scripted 'system is down' line appeared on 774 calls on the outage day and 75 calls on an earlier day.",
+    "Call transcripts do not contain tool error payloads, only the agent's spoken line."
+  ],
+  "suggested_explanations": [
+    "The upstream repair-order API returned errors and the agent fell back to the scripted line.",
+    "The tool was disabled in the assistant configuration, so the agent never attempted a call."
+  ],
+  "desired_outcome": "A finding that says which explanation the evidence supports, with the evidence, and a handoff describing the fallback the agent should offer (callback or SMS) if the lookup is unavailable.",
+  "scope": "Call logs and assistant configuration history for the two outage windows only. No live calls, no changes to the production assistant.",
+  "unknowns": [
+    "Whether the assistant configuration was changed around 04:00 UTC on the outage day.",
+    "Whether the upstream API has its own error log for that window."
+  ],
+  "competing_hypotheses": [
+    {
+      "id": "H1",
+      "statement": "The upstream repair-order API was failing and the agent's tool calls errored.",
+      "predicted_result": "Tool-call attempts continue at normal volume in the raw call records but carry error results.",
+      "strongest_alternative": "H2"
+    },
+    {
+      "id": "H2",
+      "statement": "The tool was switched off in the assistant configuration, so no calls were attempted.",
+      "predicted_result": "Tool-call attempts drop to near zero in the raw call records and a configuration change is logged near 04:00 UTC.",
+      "strongest_alternative": "H1"
+    }
+  ],
+  "success_criteria": [
+    {
+      "measurement": "Count of tool-call attempts and their result codes per hour across the outage window, from the raw call records.",
+      "evaluator": "scripts/claims.py against evidence records extracted from the call export",
+      "environment": "Local copy of the call export; read-only",
+      "pass_condition": "One hypothesis's predicted_result matches the counts and the other's does not; the finding cites the evidence record ids."
+    }
+  ],
+  "baseline": "Nobody knows which explanation is true. The audit report currently says 'data cannot tell tool-failing from switched-off'.",
+  "allowed_actions": [
+    "Read the local call export and configuration history.",
+    "Write evidence and claim records under the run folder."
+  ],
+  "prohibited_actions": [
+    "Fetching from the live voice platform API.",
+    "Changing the production assistant or its tools.",
+    "Contacting the client."
+  ],
+  "budget": {
+    "minutes": 60,
+    "max_actions": 200,
+    "max_subagents": 4,
+    "usd_estimate_cap": 5,
+    "set_by": "user"
+  },
+  "library_snapshot": null
+}

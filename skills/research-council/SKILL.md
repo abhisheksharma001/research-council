@@ -29,7 +29,12 @@ Steps S-3 to S-11 in `docs/spec-v1.md` add one numbered step each as they land.
 1. **Triage.** Read `references/triage.md`. Answer the five questions from the request text, run
    `scripts/triage.py --answers -`. Exit 3 means small: tell the user in one line which size
    signals were missing, then handle the task directly without this skill. Exit 0: continue.
-2. (S-3 goal capture, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
+2. **Goal capture.** Read `references/goal.md`. Ask the user for the four budget numbers and
+   at least one success criterion; never invent either. Write the goal body and run
+   `scripts/goal.py new --root <workspace> --from <json>`. Exit 1 lists every missing field:
+   fix them with the user, do not guess. The printed path is the run folder for every later
+   step. Change the goal only with `scripts/goal.py revise --reason "..."`.
+3. (S-4 budget and journal, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
 
 ## Outputs
 - `AGI_Research/runs/<goal_id>/FINDINGS.md`
