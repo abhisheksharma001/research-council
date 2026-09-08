@@ -53,7 +53,12 @@ Steps S-3 to S-11 in `docs/spec-v1.md` add one numbered step each as they land.
    `scripts/budget.py check`; after it, `scripts/journal.py add --kind subagent`. Then list
    the run folder: a role that touched any file other than its own is a violation, delete
    the file and log a note. No role gets Bash, the library, or the promote script.
-6. (S-7 ranking script, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
+6. **Ranking.** Read `references/rank.md`. `scripts/rank.py pair --run <run> --seed <n>`
+   prints one blinded pair; give exactly that JSON to a Ranking spawn and pass its reply to
+   `scripts/rank.py record --run <run> --pair <id> --winner A|B|draw --judgment "..."`.
+   `rank.py table` shows the order to investigate next; `rank.py cycles` lists judgments
+   that contradict each other. A rating never verifies a claim and never enters FINDINGS.md.
+7. (S-8 fire protocol, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
 
 ## Outputs
 - `AGI_Research/runs/<goal_id>/FINDINGS.md`

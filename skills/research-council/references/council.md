@@ -9,7 +9,7 @@ that wires them, and you never let a node reach past its own output.
 |---|---|---|---|---|
 | Generation | `agents/generation.md` | goal.json, evidence, claims, meta.md | writes `hypotheses.json` | Read, Grep, Glob, Write |
 | Reflection | `agents/reflection.md` | claims, evidence, hypotheses | returns objections JSON; you save `objections.json` | Read, Grep, Glob |
-| Ranking | `agents/ranking.md` | one blinded pair + evidence, claims | returns winner JSON; you record it (S-7 rank.py record, until then append to comparisons.jsonl yourself) | Read |
+| Ranking | `agents/ranking.md` | one blinded pair + evidence, claims | returns winner JSON; you record it with `scripts/rank.py record` | Read |
 | Meta-review | `agents/meta-review.md` | hypotheses, objections, comparisons, claims | writes `meta.md` | Read, Grep, Glob, Write |
 
 Not agents in v1: Evolution is Generation spawned with a `parent_id` to refine; Proximity
@@ -29,8 +29,9 @@ investigations. Reply lines are the ids you now schedule.
    `blocking: true` objection keeps its claim out of FINDINGS.md until resolved by new
    evidence you record.
 3. Spawn Ranking once per pair you want ordered, at most `max_subagents` per run in total
-   across all roles. Give it `pair_id`, and hypotheses A and B with author, id order, and
-   any rating stripped. Record the returned winner. Ratings order scheduling only.
+   across all roles. `scripts/rank.py pair` prints the blinded `pair_id`, A and B; paste
+   that JSON into the prompt and nothing else about the pair. Record the returned winner
+   with `scripts/rank.py record` (references/rank.md). Ratings order scheduling only.
 4. Spawn Meta-review. Read its Recommendation line. `continue` gives you one next
    investigation; `stop` ends stage 2 with the reason it gives.
 5. If Meta-review asked for a refinement, spawn Generation again with the parent id in
