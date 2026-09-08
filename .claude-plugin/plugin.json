@@ -1,0 +1,7 @@
+{
+  "name": "research-council",
+  "description": "Bounded research investigation on a hard problem: competing explanations, evidence-linked claims, plain-English findings in AGI_Research/, a build brief for a coding agent, and a skill library with a hard promotion gate.",
+  "version": "0.1.0",
+  "author": { "name": "Abhishek Sharma", "email": "abhishekshar649@gmail.com" },
+  "license": "MIT"
+}
