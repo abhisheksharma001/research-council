@@ -63,7 +63,11 @@ Steps S-3 to S-11 in `docs/spec-v1.md` add one numbered step each as they land.
    tie within 16 Elo points. Walk it through `strategies/fire.md` with `spark.py trial` and
    `spark.py advance`; the script refuses every skipped requirement. `progress` is written
    by the script alone; a spark marked NOISE is reported as tried and not repeated.
-8. (S-9 report, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
+8. **Report.** Read `references/report.md`. When Meta-review says stop or `budget.py check`
+   exits 2, run `scripts/report.py --run <run>`. It writes FINDINGS.md and HANDOFF.md from the
+   records alone; every claim without evidence lands under Unverified. Never edit either file
+   by hand: fix the record and rerun. Show the user both paths.
+9. (S-10 library, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
 
 ## Outputs
 - `AGI_Research/runs/<goal_id>/FINDINGS.md`

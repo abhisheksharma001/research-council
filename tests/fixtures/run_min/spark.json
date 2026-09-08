@@ -1,0 +1,59 @@
+{
+  "sparks": [
+    {
+      "id": "SP-1",
+      "state": "NOISE",
+      "observation": "Fifteen calls at 04:20 still reached the lookup tool.",
+      "hypothesis_ids": [
+        "H2"
+      ],
+      "prediction_before": "Tool-call attempts drop to near zero in the raw call records and a configuration change is logged near 04:00 UTC.",
+      "prediction_after": null,
+      "progress": false,
+      "trials": [
+        {
+          "kind": "repeat",
+          "ok": false,
+          "detail": "second export pull shows 0 calls at 04:20",
+          "condition": null,
+          "evidence_id": null,
+          "ts": "2026-09-08T23:52:47+00:00"
+        }
+      ],
+      "opened_at": "2026-09-08T23:52:47+00:00",
+      "updated_at": "2026-09-08T23:52:47+00:00"
+    },
+    {
+      "id": "SP-2",
+      "state": "VARY",
+      "observation": "Partial status lookups quadrupled on the outage day.",
+      "hypothesis_ids": [
+        "H1",
+        "H2"
+      ],
+      "prediction_before": "Tool-call attempts drop to near zero in the raw call records and a configuration change is logged near 04:00 UTC.",
+      "prediction_after": null,
+      "progress": false,
+      "trials": [
+        {
+          "kind": "repeat",
+          "ok": true,
+          "detail": "same counts on re-export",
+          "condition": null,
+          "evidence_id": null,
+          "ts": "2026-09-08T23:52:47+00:00"
+        },
+        {
+          "kind": "repeat",
+          "ok": true,
+          "detail": "same counts from dashboard",
+          "condition": null,
+          "evidence_id": null,
+          "ts": "2026-09-08T23:52:47+00:00"
+        }
+      ],
+      "opened_at": "2026-09-08T23:52:47+00:00",
+      "updated_at": "2026-09-08T23:52:47+00:00"
+    }
+  ]
+}

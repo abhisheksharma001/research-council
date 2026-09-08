@@ -1,0 +1,58 @@
+{
+  "hypotheses": [
+    {
+      "id": "H1",
+      "statement": "The upstream repair-order API was failing and the agent's tool calls errored.",
+      "predicted_result": "Tool-call attempts continue at normal volume in the raw call records but carry error results.",
+      "strongest_alternative": "H2",
+      "needed_evidence": [
+        "call export result codes"
+      ],
+      "stop_condition": "attempts drop to zero",
+      "parent_id": null,
+      "status": "open",
+      "elo": 1192.0,
+      "comparisons": 1
+    },
+    {
+      "id": "H2",
+      "statement": "The tool was switched off in the assistant configuration, so no calls were attempted.",
+      "predicted_result": "Tool-call attempts drop to near zero in the raw call records and a configuration change is logged near 04:00 UTC.",
+      "strongest_alternative": "H1",
+      "needed_evidence": [
+        "config history"
+      ],
+      "stop_condition": "a config diff shows no change",
+      "parent_id": null,
+      "status": "open",
+      "elo": 1208.0,
+      "comparisons": 1
+    },
+    {
+      "id": "H3",
+      "statement": "Callers were routed to a different assistant that has no lookup tool.",
+      "predicted_result": "Routing logs show a second assistant id during the outage window.",
+      "strongest_alternative": "H2",
+      "needed_evidence": [
+        "routing log"
+      ],
+      "stop_condition": "one assistant id only",
+      "parent_id": null,
+      "status": "refuted"
+    }
+  ],
+  "investigations": [
+    {
+      "id": "I-1",
+      "discriminates": [
+        "H1",
+        "H2"
+      ],
+      "action": "count attempts per hour in the export",
+      "expected_if": {
+        "H1": "normal volume, error codes",
+        "H2": "near zero"
+      }
+    }
+  ]
+}
