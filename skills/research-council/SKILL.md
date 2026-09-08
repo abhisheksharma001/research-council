@@ -58,7 +58,12 @@ Steps S-3 to S-11 in `docs/spec-v1.md` add one numbered step each as they land.
    `scripts/rank.py record --run <run> --pair <id> --winner A|B|draw --judgment "..."`.
    `rank.py table` shows the order to investigate next; `rank.py cycles` lists judgments
    that contradict each other. A rating never verifies a claim and never enters FINDINGS.md.
-7. (S-8 fire protocol, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
+7. **Curiosity.** Read `references/curiosity.md`. Open a spark with `scripts/spark.py new`
+   only when an observation contradicts a hypothesis's `predicted_result` or two hypotheses
+   tie within 16 Elo points. Walk it through `strategies/fire.md` with `spark.py trial` and
+   `spark.py advance`; the script refuses every skipped requirement. `progress` is written
+   by the script alone; a spark marked NOISE is reported as tried and not repeated.
+8. (S-9 report, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
 
 ## Outputs
 - `AGI_Research/runs/<goal_id>/FINDINGS.md`
