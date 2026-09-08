@@ -39,12 +39,20 @@ Steps S-3 to S-11 in `docs/spec-v1.md` add one numbered step each as they land.
    --cost_usd <float|null> --detail "..."`. Before every subagent spawn and after every
    ten actions run `scripts/budget.py check --run <run>`. Exit 2 means a cap is exceeded:
    stop, show the user the printed line, finish with what exists. Never edit the budget.
-4. (S-5 evidence and claims, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
+4. **Evidence and claims.** Read `references/evidence.md`. Every time a source is seen, run
+   `scripts/evidence.py add --run <run> --from -` with the exact excerpt and a locator; the
+   script refuses a record without one. Every assertion goes through
+   `scripts/claims.py add --run <run> --from -` naming its evidence ids; an unknown id is
+   exit 1 and nothing is written. Before writing findings run
+   `scripts/claims.py list --run <run> --unverified`: each line printed is reported as
+   unverified, never as a finding.
+5. (S-6 council roles, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
 
 ## Outputs
 - `AGI_Research/runs/<goal_id>/FINDINGS.md`
 - `AGI_Research/runs/<goal_id>/HANDOFF.md`
 - `AGI_Research/runs/<goal_id>/journal.jsonl` with running spend against the user-set budget
+- `AGI_Research/runs/<goal_id>/evidence.jsonl` and `claims.jsonl`, the only inputs FINDINGS.md may cite
 
 ## Rules that never change
 1. A claim without an evidence record is written as "unverified", never as a finding.
