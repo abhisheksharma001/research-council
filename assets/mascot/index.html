@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>research-council mascot</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root{--ground:#2b2c31;--panel:#212226;--ink:#f2efe7;--muted:#9d9a93;--line:#414247;--amber:#f0a83a}
+  body{background:var(--ground);color:var(--ink);font-family:"IBM Plex Sans",system-ui,sans-serif;font-size:15px;line-height:1.55;margin:0}
+  main{max-width:900px;margin:0 auto;padding:34px 20px 60px;display:grid;gap:30px}
+  h1{font-family:Silkscreen,monospace;font-weight:700;font-size:23px;letter-spacing:.02em;margin:0}
+  .sub{color:var(--muted);margin:0;max-width:64ch}
+  .stage{background:var(--panel);border:1px solid var(--line);padding:18px;display:grid;gap:16px;justify-items:center}
+  canvas{image-rendering:pixelated;image-rendering:crisp-edges;max-width:100%;height:auto;display:block}
+  .phases{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+  .phases button{font-family:Silkscreen,monospace;font-size:11px;letter-spacing:.05em;text-transform:uppercase;background:transparent;color:var(--muted);border:1px solid var(--line);padding:8px 13px;cursor:pointer}
+  .phases button[aria-current="true"]{color:#151515;background:var(--amber);border-color:var(--amber)}
+  :focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+  .ctl{display:flex;gap:18px;flex-wrap:wrap;align-items:center;justify-content:center;color:var(--muted);font-size:13px}
+  .ctl label{display:flex;gap:8px;align-items:center}
+  .ctl select,.ctl input[type=color],.ctl button{background:var(--ground);color:var(--ink);border:1px solid var(--line);padding:5px 8px;font:inherit;cursor:pointer}
+  .ctl input[type=color]{padding:0;width:34px;height:28px}
+  h2{font-family:Silkscreen,monospace;font-size:13px;font-weight:400;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:0 0 12px}
+  .strip{overflow-x:auto;background:var(--panel);border:1px solid var(--line);padding:14px}
+  table{border-collapse:collapse;width:100%;font-size:14px}
+  td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  td:first-child{font-family:Silkscreen,monospace;font-size:11px;color:var(--amber);white-space:nowrap;width:8ch}
+  td:last-child{color:var(--muted);font-family:ui-monospace,monospace;font-size:12.5px}
+  .motion-note{display:none;color:var(--muted);font-size:13px}
+  @media (prefers-reduced-motion:reduce){.motion-note{display:block}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>research-council mascot</h1>
+    <p class="sub">He sniffs the problem, digs through sources, finds the bone, and drops it on the findings page. Original pixel design, drawn from code on a 64&times;48 grid. Source: <code>pup.js</code>. README loop: <code>pup.gif</code>.</p>
+  </header>
+  <div class="stage">
+    <canvas id="c" width="512" height="384" aria-label="Pixel dog animation: idle, sniff, dig, found, drop"></canvas>
+    <div class="phases" id="phases"></div>
+    <div class="ctl">
+      <button id="play">Pause</button>
+      <label>Speed <select id="speed"><option value="0.5">slow</option><option value="1" selected>normal</option><option value="1.8">fast</option></select></label>
+      <label>Size <select id="scale"><option value="4">4&times;</option><option value="8" selected>8&times;</option><option value="12">12&times;</option></select></label>
+      <label>Collar <input type="color" id="collar" value="#f0a83a"></label>
+    </div>
+    <p class="motion-note">Reduced motion is on, so the loop starts paused. Step through it with the phase buttons.</p>
+  </div>
+  <section>
+    <h2>Key frames</h2>
+    <div class="strip"><canvas id="sheet" aria-label="Sprite sheet of one key frame per phase"></canvas></div>
+  </section>
+  <section>
+    <h2>What each phase means in the product</h2>
+    <table>
+      <tr><td>IDLE</td><td>Waiting for a goal. Breathing, tail wag, occasional blink.</td><td>empty state</td></tr>
+      <tr><td>SNIFF</td><td>Triage. Nose sweeps the ground: is this a real problem with unknowns?</td><td>goal.py new</td></tr>
+      <tr><td>DIG</td><td>The council runs. Dirt flies, the hole deepens, a mound piles up.</td><td>journal.jsonl</td></tr>
+      <tr><td>FOUND</td><td>A claim gets an evidence record. The bone erupts, spinning.</td><td>claims.py add</td></tr>
+      <tr><td>DROP</td><td>Bone lands on the page. The report is written.</td><td>FINDINGS.md</td></tr>
+    </table>
+  </section>
+</main>
+<script src="pup.js"></script>
+<script>
+(() => {
+  const P = window.Pup, cv = document.getElementById('c'), ctx = cv.getContext('2d');
+  const palette = Object.assign({}, P.PALETTE);
+  let scale = 8, playing = !matchMedia('(prefers-reduced-motion: reduce)').matches, speed = 1, acc = 0, last = performance.now();
+  const loop = new P.Loop();
+  const bar = document.getElementById('phases');
+  P.PHASES.forEach((ph, i) => { const b = document.createElement('button'); b.textContent = ph.name; b.onclick = () => { loop.enter(i); mark(); }; bar.appendChild(b); });
+  function mark() { [...bar.children].forEach((b, i) => b.setAttribute('aria-current', i === loop.phase ? 'true' : 'false')); }
+  function tick(now) {
+    acc += (now - last) * speed; last = now;
+    if (playing) while (acc >= P.STEP_MS) { acc -= P.STEP_MS; loop.advance(); mark(); }
+    P.paint(ctx, loop.render().grid, scale, palette);
+    requestAnimationFrame(tick);
+  }
+  const pb = document.getElementById('play'); pb.textContent = playing ? 'Pause' : 'Play';
+  pb.onclick = () => { playing = !playing; pb.textContent = playing ? 'Pause' : 'Play'; };
+  document.getElementById('speed').onchange = e => speed = +e.target.value;
+  document.getElementById('scale').onchange = e => { scale = +e.target.value; cv.width = P.W * scale; cv.height = P.H * scale; };
+  document.getElementById('collar').oninput = e => { palette.collar = e.target.value; sheet(); };
+  const sc2 = document.getElementById('sheet'), sx2 = sc2.getContext('2d');
+  function sheet() {
+    const sc = 4, gap = 8; sc2.width = (P.W * sc + gap) * P.PHASES.length; sc2.height = P.H * sc + sc * 5;
+    sx2.fillStyle = palette.bg; sx2.fillRect(0, 0, sc2.width, sc2.height);
+    P.PHASES.forEach((ph, i) => {
+      const o = document.createElement('canvas'); o.width = P.W * sc; o.height = P.H * sc;
+      P.paint(o.getContext('2d'), P.keyFrame(i, P.KEY[i]).grid, sc, palette);
+      sx2.drawImage(o, i * (P.W * sc + gap), 0);
+      sx2.font = `400 ${sc * 2.6}px Silkscreen, monospace`; sx2.fillStyle = '#9d9a93'; sx2.textBaseline = 'top';
+      sx2.fillText(ph.name.toUpperCase(), i * (P.W * sc + gap) + sc, P.H * sc + sc);
+    });
+  }
+  document.fonts.ready.then(sheet); sheet(); mark();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

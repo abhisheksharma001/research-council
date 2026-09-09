@@ -254,6 +254,26 @@ Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evi
 **Verify:** `python3 -m unittest tests.test_fence -v` → pass; remove the comparison → exactly one test fails.
 **Must not:** delete files, spawn anything, or edit `agents/*.md`.
 
+### S-26 — Mascot: one code-drawn pixel dog for README, favicon and any later UI
+**PR:** one.
+**Depends on:** nothing. Asked for 2026-09-09 (reference image was a copyrighted character; this is an original design that keeps only the genre).
+**Files:** `assets/mascot/pup.js`, `assets/mascot/index.html`, `assets/mascot/pup.gif`, `scripts/mascot_gif.py`, `tests/test_mascot.py`, `README.md`.
+**Today:** the repo has no image, no favicon and no visual identity; the README opens with a paragraph.
+**Change:** `pup.js` draws every frame of a five-phase loop (idle, sniff, dig, found with a WOO!, drop onto a FINDINGS page) on a 64×48 grid as palette indices, with seeded randomness so a frame number always draws the same pixels; it runs in a browser (`window.Pup`) and in node (`--frames` dumps JSON). `scripts/mascot_gif.py` turns that dump into a looping GIF89a with the standard library (own LZW encoder); node is a dev-only tool and the GIF is committed. `index.html` previews the loop with phase buttons, speed, size and collar colour. README shows the GIF top-right.
+**Acceptance:** WHEN `python3 scripts/mascot_gif.py` runs THEN it SHALL write a 256×192 looping GIF with exactly one frame per animation step (122), byte-identical to the committed file, and WHEN `pup.js --frames` runs twice THEN the two dumps SHALL be identical.
+**Verify:** `python3 -m unittest tests.test_mascot -v` → 4 pass (the node test skips without node); corrupt the LZW width step → the roundtrip test fails.
+**Must not:** add a pip or npm dependency, ship any traced copy of the reference image, or put a UI page in the plugin's skill path.
+
+### S-27 — SEO: description, topics, licence and README opening
+**PR:** one.
+**Depends on:** S-26.
+**Files:** `README.md`, `LICENSE`, `.claude-plugin/plugin.json`; GitHub repo description and topics (set with `gh repo edit`, not a file).
+**Today:** `gh repo view --json description,repositoryTopics` returns an empty description and null topics; no LICENSE file although plugin.json says MIT; README has no install line and the tagline carries no search terms.
+**Change:** repo description "Claude Code plugin that researches a hard problem before anyone codes it: frozen goal, evidence-backed claims, plain-English findings."; topics claude-code, claude-code-plugin, ai-agents, research-agent, agentic-research, evidence, llm, python; MIT LICENSE file; README gets an Install block and a Why section under the H1, and the H1 keeps the plugin name; plugin.json description leads with "Claude Code plugin".
+**Acceptance:** WHEN `gh repo view --json description,repositoryTopics` runs THEN it SHALL show the description and eight topics, and WHEN `test -f LICENSE && grep -c 'claude-code' README.md` runs THEN it SHALL print at least 1.
+**Verify:** the two commands above; `python3 -m unittest discover -s tests` still green.
+**Must not:** rename the plugin, change the author email, or touch any file under `skills/`.
+
 ## Status
 | step | state | learned |
 |---|---|---|

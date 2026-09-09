@@ -1,5 +1,7 @@
 # research-council
 
+<img src="assets/mascot/pup.gif" width="256" height="192" alt="Pixel dog sniffs the ground, digs, finds a bone and drops it on a findings page" align="right">
+
 A Claude Code plugin that researches a hard problem before anyone codes it.
 
 Give it a problem with more than one credible explanation. It freezes a goal and a budget you set,
