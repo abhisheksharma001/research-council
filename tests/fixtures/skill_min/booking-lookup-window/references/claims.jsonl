@@ -1,0 +1,1 @@
+{"claim_id": "C-1", "statement": "No repair-order lookup calls were attempted between 04:00 and 05:00 UTC on the outage day.", "claim_type": "observed", "scope": "outage day, 04:00-05:00 UTC, call export only", "evidence_ids": ["E-1"], "test_ids": ["T-1"], "limitations": "One hour window checked, not the full day."}

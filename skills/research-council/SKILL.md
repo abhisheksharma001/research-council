@@ -67,7 +67,12 @@ Steps S-3 to S-11 in `docs/spec-v1.md` add one numbered step each as they land.
    exits 2, run `scripts/report.py --run <run>`. It writes FINDINGS.md and HANDOFF.md from the
    records alone; every claim without evidence lands under Unverified. Never edit either file
    by hand: fix the record and rerun. Show the user both paths.
-9. (S-10 library, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
+9. **Library.** Read `references/library.md`. If the run produced a reusable procedure, assemble a
+   candidate folder (SKILL.md, references/manifest.json, the run's claims and evidence, task
+   contracts) and run `python3 scripts/promote.py --candidate <dir>` yourself. It runs every task
+   contract of every active library version plus the candidate's; any failure leaves the library
+   untouched. Never write to `library/` by hand and never hand promotion to a subagent.
+10. (S-11 retrieval, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
 
 ## Outputs
 - `AGI_Research/runs/<goal_id>/FINDINGS.md`

@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "skill_id": "booking-lookup-window",
+  "name": "booking-lookup-window",
+  "version": "1.0.0",
+  "record_type": "diagnostic",
+  "evidence_level": "observed",
+  "origin": {
+    "goal_id": "9109fc07-0000-4000-8000-000000000000",
+    "created_at": "2026-09-09T00:00:00+00:00"
+  },
+  "goal": "Tell whether the lookup tool was reachable inside a time window of a call export.",
+  "applicability": {
+    "triggers": [
+      "bookings failing",
+      "call volume normal",
+      "lookup tool silent",
+      "call export"
+    ],
+    "known_counterexamples": [
+      "Calls routed to a different assistant also show zero attempts."
+    ]
+  },
+  "inputs": [
+    "call export as JSON with start_utc and tool_calls per call",
+    "UTC window start and end"
+  ],
+  "outputs": [
+    "OK, SILENT or EMPTY line with call and attempt counts"
+  ],
+  "mechanism": "Zero lookup attempts while calls continue means the tool was not offered to the model, which points at configuration rather than callers.",
+  "procedure": [
+    "Export the calls for the day as JSON.",
+    "Run scripts/check_window.py with the export and the window.",
+    "Read OK, SILENT or EMPTY."
+  ],
+  "dependencies": [],
+  "conflicts": [],
+  "refs": [
+    "C-1",
+    "E-1"
+  ],
+  "task_contracts": [
+    {
+      "id": "T-1",
+      "command": "python3 scripts/check_window.py references/fixtures/calls.json 04:00 05:00",
+      "expected_exit": 1,
+      "expected_stdout": "SILENT 3 calls",
+      "fixture": "references/fixtures/calls.json",
+      "fixture_hash": "640e6cb64742303c44e1b3618f6a534ca4c83b658a062330403411e2f667f37b"
+    },
+    {
+      "id": "T-2",
+      "command": "python3 scripts/check_window.py references/fixtures/calls.json 03:00 06:00",
+      "expected_exit": 0,
+      "expected_stdout": "OK 5 calls",
+      "fixture": "references/fixtures/calls.json",
+      "fixture_hash": "640e6cb64742303c44e1b3618f6a534ca4c83b658a062330403411e2f667f37b"
+    }
+  ],
+  "curiosity": {
+    "spark_ids": [],
+    "boundary": null
+  },
+  "lineage": {
+    "parent": null,
+    "reason": "first version"
+  },
+  "integrity": {
+    "files": {
+      "references/claims.jsonl": "83666e015ade7a2784ce1bd60f3147a281422f0af1e16a0a35fc6400f7998737",
+      "references/evidence.jsonl": "617a779b213e284254c1a0a9d914ca96f4be32f72f84d7a5bcbc395f87b46ee6"
+    }
+  },
+  "access": {
+    "scope": "private"
+  }
+}
