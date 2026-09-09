@@ -75,6 +75,18 @@ class GoalTests(unittest.TestCase):
         del b["budget"]["usd_estimate_cap"]
         self.assertIn("missing field: budget.usd_estimate_cap", goal.validate(b))
 
+    def test_zero_usd_cap_is_accepted_other_zero_caps_are_not(self):
+        b = body()
+        b["budget"]["usd_estimate_cap"] = 0
+        self.assertEqual(goal.validate(b), [])
+        b["budget"]["max_subagents"] = 0
+        self.assertIn("invalid field: budget.max_subagents (must be a number above 0)", goal.validate(b))
+
+    def test_negative_usd_cap_rejected(self):
+        b = body()
+        b["budget"]["usd_estimate_cap"] = -1
+        self.assertIn("invalid field: budget.usd_estimate_cap (must be a number 0 or above)", goal.validate(b))
+
     def test_unknown_field_rejected(self):
         b = body()
         b["priority"] = "high"

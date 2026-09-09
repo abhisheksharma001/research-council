@@ -106,8 +106,9 @@ def validate(body):
         for k in BUDGET_NUMBERS:
             if k not in budget:
                 errors.append(f"missing field: budget.{k}")
-            elif not _is_number(budget[k]) or budget[k] <= 0:
-                errors.append(f"invalid field: budget.{k} (must be a number above 0)")
+            elif not _is_number(budget[k]) or budget[k] < 0 or (budget[k] == 0 and k != "usd_estimate_cap"):
+                floor = "0 or above" if k == "usd_estimate_cap" else "above 0"
+                errors.append(f"invalid field: budget.{k} (must be a number {floor})")
         if budget.get("set_by") != "user":
             errors.append('invalid field: budget.set_by (must be "user")')
         for k in budget:

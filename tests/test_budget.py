@@ -108,6 +108,15 @@ class BudgetTests(unittest.TestCase):
         self.assertEqual(st["unmetered"], 4)
         self.assertEqual(st["exceeded"], ["usd_estimate_cap"])
 
+    def test_zero_usd_cap_exceeded_by_first_metered_cost(self):
+        b = body()
+        b["budget"]["usd_estimate_cap"] = 0
+        run = goal.new(self.root / "zero", b)
+        journal.add(run, "fetch", None, "unmetered")
+        self.assertEqual(budget.status(run)["exceeded"], [])
+        journal.add(run, "fetch", 0.01, "metered")
+        self.assertEqual(budget.status(run)["exceeded"], ["usd_estimate_cap"])
+
     def test_hand_raised_cap_is_refused(self):
         path = self.run / "goal.json"
         g = json.loads(path.read_text())

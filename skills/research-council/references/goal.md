@@ -7,6 +7,8 @@ downstream may rewrite it.
 ## Before writing the goal
 1. Ask the user for the four budget numbers (`minutes`, `max_actions`, `max_subagents`,
    `usd_estimate_cap`). The script has no defaults and will refuse a goal without them.
+   `usd_estimate_cap` may be `0`: it means no paid call is allowed, and the first metered
+   cost makes `scripts/budget.py check` exit 2. The other three must be above zero.
 2. Ask for at least one success criterion in the user's words. If the user cannot give one,
    stop and say so. Never invent one. If the user has not given the numbers or the
    criterion in this session, stop and ask again. Never copy them from a fixture, a memo
