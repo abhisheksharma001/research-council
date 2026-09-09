@@ -24,11 +24,11 @@ skills/research-council/SKILL.md          entry point, Agent Skills spec
 skills/research-council/references/       procedure docs loaded on demand
 agents/*.md                               council roles as Claude Code subagents
 strategies/*.md                           curiosity strategies (fire.md first)
-scripts/*.py                              triage, goal, budget, journal, evidence, claims, rank, spark, report, promote, retrieve, validate_skill
+scripts/*.py                              triage, goal, budget, journal, evidence, claims, rank, spark, report, promote, retrieve, validate_skill, fence
 library/                                  versioned validated skills + registry.json + receipts.jsonl
 tests/
 ```
-Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evidence.jsonl,claims.jsonl,hypotheses.json,spark.json,FINDINGS.md,HANDOFF.md}`
+Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evidence.jsonl,claims.jsonl,hypotheses.json,spark.json,fence/,FINDINGS.md,HANDOFF.md}`
 
 ---
 
@@ -244,6 +244,16 @@ Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evi
 **Verify:** that grep prints 1 (it printed 0 before). The self-run's grep `grep -c 'fixed PR'` prints 5 both before and after, because row 2 already carried `fixed PR #13` in its "spec line corrected" cell; that cell goes back to `spec-v1.md S-14` so the row matches rows 1, 3, 4 and 9.
 **Must not:** touch any other row.
 
+### S-24 — After-spawn fence is a script
+**PR:** one.
+**Depends on:** S-14. Accepted from the Proposed section 2026-09-09.
+**Files:** `scripts/fence.py`, `tests/test_fence.py`, `skills/research-council/references/council.md`.
+**Today:** `references/council.md` "After every spawn" says "this listing is the fence", but `grep -n 'listdir\|scandir\|iterdir\|glob(' scripts/*.py` returns only `promote.py:64` (self-run E-25, E-39); the first-run note records no listing after any spawn (E-37); in the self-run the listing was `ls` by hand (E-40).
+**Change:** `scripts/fence.py snapshot --run <run> --role <role>` writes `<run>/fence/<role>.json` with every file in the run folder and its sha256. `scripts/fence.py check --run <run> --role <role>` compares the folder with that snapshot: allowed changes are `hypotheses.json` for generation, `meta.md` for meta-review, nothing for reflection and ranking. Every other new or changed file is printed as `violation: <role> wrote <file>`, a `note` is appended to the journal, and the exit code is 2; exit 0 when clean. The script deletes nothing. council.md "Every spawn" block replaces the prose listing with the two commands.
+**Acceptance:** WHEN a reflection spawn leaves a new file in the run folder THEN `fence.py check --role reflection` SHALL exit 2 naming the file and append a journal note, and WHEN a generation spawn changes only `hypotheses.json` THEN it SHALL exit 0.
+**Verify:** `python3 -m unittest tests.test_fence -v` → pass; remove the comparison → exactly one test fails.
+**Must not:** delete files, spawn anything, or edit `agents/*.md`.
+
 ## Status
 | step | state | learned |
 |---|---|---|
@@ -267,13 +277,3 @@ Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evi
 
 ## Proposed (self-run 2026-09-09)
 From `docs/runs/2026-09-09-self-run.md`. Not in the register until Abhishek accepts one; ship each as its own PR. This run also confirmed bug 6 (S-18) in the wild: six replacement claims, originals still printed as findings. S-18 should move ahead of S-17.
-
-### S-24 — After-spawn fence is a script
-**PR:** one.
-**Depends on:** S-14.
-**Files:** `scripts/fence.py`, `tests/test_fence.py`, `skills/research-council/references/council.md`.
-**Today:** `references/council.md` "After every spawn" says "this listing is the fence", but `grep -n 'listdir\|scandir\|iterdir\|glob(' scripts/*.py` returns only `promote.py:64` (self-run E-25, E-39); the first-run note records no listing after any spawn (E-37); in the self-run the listing was `ls` by hand (E-40).
-**Change:** `scripts/fence.py snapshot --run <run> --role <role>` writes `<run>/fence/<role>.json` with every file in the run folder and its sha256. `scripts/fence.py check --run <run> --role <role>` compares the folder with that snapshot: allowed changes are `hypotheses.json` for generation, `meta.md` for meta-review, nothing for reflection and ranking. Every other new or changed file is printed as `violation: <role> wrote <file>`, a `note` is appended to the journal, and the exit code is 2; exit 0 when clean. The script deletes nothing. council.md "Every spawn" block replaces the prose listing with the two commands.
-**Acceptance:** WHEN a reflection spawn leaves a new file in the run folder THEN `fence.py check --role reflection` SHALL exit 2 naming the file and append a journal note, and WHEN a generation spawn changes only `hypotheses.json` THEN it SHALL exit 0.
-**Verify:** `python3 -m unittest tests.test_fence -v` → pass; remove the comparison → exactly one test fails.
-**Must not:** delete files, spawn anything, or edit `agents/*.md`.
