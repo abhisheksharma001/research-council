@@ -9,6 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import budget  # noqa: E402
+import claims  # noqa: E402
 import evidence  # noqa: E402
 import report  # noqa: E402
 
@@ -136,6 +137,25 @@ class ReportTests(unittest.TestCase):
         for c in self.jsonl("claims.jsonl"):
             self.assertEqual(text.count(c["statement"]), 1, c["claim_id"])
 
+    # S-18 acceptance: a superseded claim shows only under Superseded, its replacement under What we found
+    def test_superseded_claim_appears_only_under_superseded(self):
+        claims.supersede(self.run, "C-1", "C-2", "C-2 explains the gap; C-1 counted one hour")
+        sec = sections(report.findings(self.run))
+        self.assertIn("- C-1 No repair-order lookup calls were attempted between 04:00 and 05:00 UTC "
+                      "on the outage day. Superseded by C-2: C-2 explains the gap; C-1 counted one hour",
+                      sec["Superseded"])
+        self.assertIn("**C-2**", sec["What we found"])
+        for name, body in sec.items():
+            if name != "Superseded":
+                self.assertNotIn("C-1", body, name)
+
+    def test_superseded_lines_stay_traceable(self):
+        claims.supersede(self.run, "C-1", "C-2", "C-2 explains the gap")
+        fixed = list(report.FIXED.values())
+        for line in sections(report.findings(self.run))["Superseded"].splitlines():
+            if line.strip():
+                self.assertTrue(any(f in line for f in fixed), line)
+
     # robustness
     def test_missing_hypotheses_and_sparks_render_none_recorded(self):
         (self.run / "hypotheses.json").unlink()
@@ -168,7 +188,7 @@ class ReportTests(unittest.TestCase):
 
     def test_report_md_names_every_section(self):
         doc = REPORT_MD.read_text(encoding="utf-8")
-        for h in ("What you asked", "What we found", "Unverified", "How sure", "What we tried that did not work",
+        for h in ("What you asked", "What we found", "Unverified", "Superseded", "How sure", "What we tried that did not work",
                   "What is still unknown", "What to build now", "Spend", "Chosen approach", "Acceptance",
                   "Files likely touched", "Must not"):
             self.assertIn(h, doc)

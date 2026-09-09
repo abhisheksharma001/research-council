@@ -2,8 +2,9 @@
 """Record claims in a run's claims.jsonl and list the unverified ones.
 
 Usage:
-  python3 scripts/claims.py add  --run <run-dir> --from <json|->
-  python3 scripts/claims.py list --run <run-dir> [--unverified]
+  python3 scripts/claims.py add       --run <run-dir> --from <json|->
+  python3 scripts/claims.py list      --run <run-dir> [--unverified]
+  python3 scripts/claims.py supersede --run <run-dir> --claim C-a --by C-b --reason <text>
 
 Input JSON for add (see skills/research-council/references/evidence.md):
   statement     the claim in one sentence
@@ -16,6 +17,11 @@ Input JSON for add (see skills/research-council/references/evidence.md):
 A claim with an empty evidence_ids list is stored but is unverified (CLAUDE.md
 invariant 2). A claim naming an evidence_id that does not exist is refused and
 nothing is written. The script adds claim_id (C-<n>).
+
+`supersede` appends {"claim_id": "C-a", "superseded_by": "C-b", "reason": ...} to the same
+file; no existing line is rewritten. Both ids must exist, C-b must have evidence, C-a must
+not already be superseded, else exit 1 and nothing is written. `list` marks the claim
+`[superseded by C-b]` and report.py moves it out of What we found.
 
 Exit 0 ok, 1 invalid input.
 """
@@ -70,13 +76,51 @@ def validate(body, known_evidence):
     return errors
 
 
-def read(run):
-    """Return all claims; an absent file is an empty list."""
+def _lines(run):
     path = Path(run) / FILENAME
     if not path.is_file():
         return []
     lines = path.read_text(encoding="utf-8").splitlines()
     return [json.loads(line) for line in lines if line.strip()]
+
+
+def read(run):
+    """Return all claims; a claim a later record superseded carries superseded_by and reason."""
+    records = _lines(run)
+    by_id = {}
+    for r in records:
+        if "statement" in r:
+            by_id[r["claim_id"]] = dict(r)
+    for r in records:
+        if "superseded_by" in r and r["claim_id"] in by_id:
+            by_id[r["claim_id"]]["superseded_by"] = r["superseded_by"]
+            by_id[r["claim_id"]]["reason"] = r["reason"]
+    return list(by_id.values())
+
+
+def supersede(run, claim_id, by_id, reason):
+    """Append one supersede record. Returns it. Raises ValueError; writes nothing on error."""
+    run = Path(run)
+    if not _nonempty_str(reason):
+        raise ValueError("missing field: reason")
+    by = {c["claim_id"]: c for c in read(run)}
+    errors = [f"unknown claim_id: {cid}" for cid in (claim_id, by_id) if cid not in by]
+    if errors:
+        raise ValueError("\n".join(errors))
+    if claim_id == by_id:
+        errors.append(f"invalid field: by ({claim_id} cannot supersede itself)")
+    if not by[by_id]["evidence_ids"]:
+        errors.append(f"invalid field: by ({by_id} has no evidence; an unverified claim "
+                      "cannot replace anything)")
+    if by[claim_id].get("superseded_by"):
+        errors.append(f"invalid field: claim ({claim_id} is already superseded by "
+                      f"{by[claim_id]['superseded_by']})")
+    if errors:
+        raise ValueError("\n".join(errors))
+    record = {"claim_id": claim_id, "superseded_by": by_id, "reason": reason}
+    with (run / FILENAME).open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return record
 
 
 def add(run, body):
@@ -101,7 +145,8 @@ def unverified(claims):
 
 def line(claim):
     ev = ", ".join(claim["evidence_ids"]) if claim["evidence_ids"] else "unverified"
-    return f"{claim['claim_id']} {claim['claim_type']} [{ev}] {claim['statement']}"
+    tail = f" [superseded by {claim['superseded_by']}]" if claim.get("superseded_by") else ""
+    return f"{claim['claim_id']} {claim['claim_type']} [{ev}] {claim['statement']}{tail}"
 
 
 def _read_json(path):
@@ -118,11 +163,19 @@ def main(argv):
     b = sub.add_parser("list")
     b.add_argument("--run", required=True)
     b.add_argument("--unverified", action="store_true")
+    c = sub.add_parser("supersede")
+    c.add_argument("--run", required=True)
+    c.add_argument("--claim", required=True)
+    c.add_argument("--by", required=True)
+    c.add_argument("--reason", required=True)
     args = p.parse_args(argv[1:])
     try:
         if args.cmd == "add":
             claim = add(args.run, _read_json(args.src))
             print(f"{claim['claim_id']} recorded ({len(claim['evidence_ids'])} evidence)")
+        elif args.cmd == "supersede":
+            rec = supersede(args.run, args.claim, args.by, args.reason)
+            print(f"{rec['claim_id']} superseded by {rec['superseded_by']}")
         else:
             claims = read(args.run)
             for c in unverified(claims) if args.unverified else claims:

@@ -10,12 +10,13 @@ and the spend line from budget.py. Every sentence in the output is either a fixe
 heading or gloss from this file, or text copied from one of those records. Nothing
 is summarised, inferred, or reworded.
 
-FINDINGS.md sections: What you asked; What we found; Unverified; How sure; What we
-tried that did not work; What is still unknown; What to build now; Spend.
+FINDINGS.md sections: What you asked; What we found; Unverified; Superseded; How sure;
+What we tried that did not work; What is still unknown; What to build now; Spend.
 HANDOFF.md sections: Goal; Chosen approach (with the Elo table); Acceptance;
 Files likely touched; Must not.
 
 A claim with no evidence ids appears only under "Unverified" (CLAUDE.md invariant 2).
+A claim superseded by a later claim (claims.py supersede) appears only under "Superseded".
 Exit 0 ok, 1 when goal.json is missing or tampered.
 """
 import argparse
@@ -45,6 +46,9 @@ FIXED = {
     "found_intro": "Each finding is one claim with the evidence records that back it; "
                    "[E-n] names the record and where in the source it was seen.",
     "unverified_intro": "Claims with no evidence record. Not findings.",
+    "superseded_intro": "Claims replaced by a later claim with evidence. The replacement is "
+                        "the finding; these are kept so the correction is visible.",
+    "superseded_by": "Superseded by",
     "how_sure_intro": "Claim type: " + "; ".join(f"{k} = {v}" for k, v in GLOSS.items()) + ".",
     "no_limitations": "none stated",
     "build_now": f"See {HANDOFF} in this folder.",
@@ -83,8 +87,10 @@ def _bullets(items, empty=NONE):
 
 def findings(run):
     g, ev, cl, hyps, sparks = _sources(run)
-    verified = [c for c in cl if c["evidence_ids"]]
-    unverified = claims.unverified(cl)
+    superseded = [c for c in cl if c.get("superseded_by")]
+    live = [c for c in cl if not c.get("superseded_by")]
+    verified = [c for c in live if c["evidence_ids"]]
+    unverified = claims.unverified(live)
     out = [f"# Findings for goal {g['goal_id']} (revision {g['revision']})", ""]
     out += ["## What you asked", "", g["request_text"], "", f"Wanted: {g['desired_outcome']}", ""]
     out += ["## What we found", "", FIXED["found_intro"], ""]
@@ -96,6 +102,9 @@ def findings(run):
         out += [NONE, ""]
     out += ["## Unverified", "", FIXED["unverified_intro"], ""]
     out += _bullets([f"{c['claim_id']} {c['statement']}" for c in unverified]) + [""]
+    out += ["## Superseded", "", FIXED["superseded_intro"], ""]
+    out += _bullets([f"{c['claim_id']} {c['statement']} {FIXED['superseded_by']} "
+                     f"{c['superseded_by']}: {c['reason']}" for c in superseded]) + [""]
     out += ["## How sure", "", FIXED["how_sure_intro"], ""]
     out += _bullets([f"{c['claim_id']}: {c['claim_type']}. Limitations: {c['limitations'] or FIXED['no_limitations']}"
                      for c in verified]) + [""]

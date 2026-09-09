@@ -206,8 +206,8 @@ Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evi
 
 ### S-18 — Supersede a claim
 **PR:** one.
-**Depends on:** S-17.
-**Files:** `scripts/claims.py`, `scripts/report.py`, `tests/test_claims.py`, `tests/test_report.py`, `skills/research-council/references/evidence.md`.
+**Depends on:** S-9. Moved ahead of S-17 on 2026-09-09: the first self-run hit bug 6 live (six replacement claims, originals still printed as findings) and bug 5 not at all.
+**Files:** `scripts/claims.py`, `scripts/report.py`, `tests/test_claims.py`, `tests/test_report.py`, `skills/research-council/references/evidence.md`, `skills/research-council/references/report.md`.
 **Today:** claims.py has `add` and `list` only; a wrong claim stays a finding beside its correction (bug 6).
 **Change:** `claims.py supersede --run <run> --claim C-a --by C-b --reason "..."` appends a record `{"claim_id": "C-a", "superseded_by": "C-b", "reason": ...}` to `claims.jsonl`; both ids must exist and C-b must have evidence, else exit 1 and nothing written. `list` shows `[superseded by C-b]`. report.py drops superseded claims from What we found and lists them in one FIXED-headed section `## Superseded`. evidence.md documents the command.
 **Acceptance:** WHEN C-a is superseded by C-b THEN FINDINGS.md SHALL show C-a only under Superseded and C-b under What we found.
