@@ -157,7 +157,8 @@ class SilentUserSentence(unittest.TestCase):
         ]
         for path in files:
             text = " ".join(path.read_text(encoding="utf-8").split())
-            self.assertIn(SILENT_USER_SENTENCE, text, f"{path.relative_to(ROOT)} lacks the silent-user sentence")
+            self.assertTrue(SILENT_USER_SENTENCE in text,
+                            f"{path.relative_to(ROOT)} lacks the silent-user sentence")
 
 
 if __name__ == "__main__":
