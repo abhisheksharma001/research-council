@@ -63,7 +63,7 @@ FIXED = {
     "build_now": f"See {HANDOFF} in this folder.",
     "elo_gloss": "Elo is a rating moved only by head-to-head comparisons; it orders what to "
                  "investigate, it does not verify anything.",
-    "beat_none": "Beat: nothing; only one hypothesis stands.",
+    "beat_none": "Beat: no pair judged against it.",
     "ears_intro": "One sentence per success criterion, in the form WHEN ... THEN ... SHALL.",
     "table_header": rank.table({"hypotheses": []}),
 }
@@ -106,6 +106,16 @@ def objections(run):
 
 def _ranked(hyps):
     return sorted(hyps, key=lambda h: (-h["elo"], h["id"]))
+
+
+def beaten(run, chosen, hyps):
+    """Highest-rated hypothesis `chosen` has a recorded win over in comparisons.jsonl, or None."""
+    losers = set()
+    for c in rank._jsonl(Path(run) / rank.COMPARISONS):
+        if c["winner_id"] == chosen:
+            losers.add(c["b"] if c["a"] == chosen else c["a"])
+    ranked = _ranked([h for h in hyps if h["id"] in losers])
+    return ranked[0] if ranked else None
 
 
 def _evidence_ref(ev, eid):
@@ -173,11 +183,11 @@ def handoff(run):
     out = [f"# Handoff for goal {g['goal_id']} (revision {g['revision']})", ""]
     out += ["## Goal", "", g["desired_outcome"], "", f"Scope: {g['scope']}", ""]
     out += ["## Chosen approach", "", FIXED["elo_gloss"], ""]
-    if len(ranked) >= 2:
-        out += [f"Chosen: {ranked[0]['id']} {ranked[0]['statement']}", "",
-                f"Beat: {ranked[1]['id']} {ranked[1]['statement']}", ""]
-    elif ranked:
-        out += [f"Chosen: {ranked[0]['id']} {ranked[0]['statement']}", "", FIXED["beat_none"], ""]
+    if ranked:
+        chosen = ranked[0]
+        beat = beaten(run, chosen["id"], hyps)
+        out += [f"Chosen: {chosen['id']} {chosen['statement']}", "",
+                f"Beat: {beat['id']} {beat['statement']}" if beat else FIXED["beat_none"], ""]
     else:
         out += [NONE, ""]
     if hyps:
