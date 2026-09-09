@@ -72,3 +72,17 @@ python3 scripts/claims.py list --run AGI_Research/runs/<goal_id> --unverified
 Before writing FINDINGS.md, run `--unverified`; every line printed either gets an evidence
 record now or is reported as unverified. Exit 1 on either script means the input was
 rejected; stderr lists every problem, one per line.
+
+## Correcting a claim
+A claim is never edited or deleted. When a later claim with evidence shows an earlier one
+was wrong, supersede it:
+```bash
+python3 scripts/claims.py supersede --run AGI_Research/runs/<goal_id> --claim C-1 --by C-4 \
+  --reason "C-4 counts the full day; C-1 counted one hour"
+# C-1 superseded by C-4
+```
+This appends `{"claim_id": "C-1", "superseded_by": "C-4", "reason": "..."}` to
+`claims.jsonl`; the original line stays as written. Both ids must exist, `--by` must have
+evidence, and a claim can be superseded once, else exit 1 and nothing is written. `list`
+then shows `C-1 ... [superseded by C-4]` and FINDINGS.md prints C-1 only under
+"Superseded", with C-4 under "What we found".
