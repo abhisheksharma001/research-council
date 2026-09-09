@@ -161,5 +161,52 @@ class SilentUserSentence(unittest.TestCase):
                             f"{path.relative_to(ROOT)} lacks the silent-user sentence")
 
 
+class IgnoreWarning(unittest.TestCase):
+    """S-16: a git workspace that does not ignore AGI_Research gets a warning, exit 0 (bug 4)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def new(self):
+        return subprocess.run([sys.executable, str(SCRIPT), "new", "--root", str(self.root),
+                               "--from", str(FIXTURE)], capture_output=True, text=True)
+
+    def test_git_checkout_without_ignore_rule_warns_and_exits_0(self):
+        (self.root / ".git").mkdir()
+        (self.root / ".gitignore").write_text("*.pyc\n")
+        r = self.new()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("warning: AGI_Research/ is not ignored by", r.stderr)
+        self.assertIn(str(self.root / ".gitignore"), r.stderr)
+        self.assertEqual((self.root / ".gitignore").read_text(), "*.pyc\n")
+
+    def test_git_checkout_without_any_gitignore_warns(self):
+        (self.root / ".git").mkdir()
+        r = self.new()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("warning: AGI_Research/", r.stderr)
+        self.assertFalse((self.root / ".gitignore").exists())
+
+    def test_git_checkout_with_ignore_rule_prints_nothing_extra(self):
+        (self.root / ".git").mkdir()
+        (self.root / ".gitignore").write_text("*.pyc\nAGI_Research/\n")
+        r = self.new()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stderr, "")
+
+    def test_plain_folder_prints_nothing_extra(self):
+        r = self.new()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stderr, "")
+
+    def test_skill_md_says_add_ignore_line_only_with_the_users_go(self):
+        text = " ".join((ROOT / "skills" / "research-council" / "SKILL.md").read_text().split())
+        self.assertIn("add the line `AGI_Research/` to the workspace `.gitignore` only with their go", text)
+
+
 if __name__ == "__main__":
     unittest.main()

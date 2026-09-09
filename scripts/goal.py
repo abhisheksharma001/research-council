@@ -9,7 +9,9 @@ Usage:
 `new` validates the goal body (see skills/research-council/references/goal.md), adds
 goal_id, revision 1, created_at and frozen_sha256, and writes
 <root>/AGI_Research/runs/<goal_id>/goal.json. Missing or invalid fields are listed one per
-line on stderr and the exit code is 1. Nothing is defaulted or invented.
+line on stderr and the exit code is 1. Nothing is defaulted or invented. When <root> has a
+.git directory and its .gitignore has no line mentioning AGI_Research, a warning goes to stderr
+and the exit code stays 0; this script never edits .gitignore.
 
 `revise` is the only way a goal changes. It verifies the current goal.json is untouched,
 appends it (with the reason) to goal.history.jsonl, and writes revision n+1. A budget cap
@@ -189,6 +191,22 @@ def _read_json(path):
     return json.loads(raw)
 
 
+IGNORE_WARNING = ("warning: AGI_Research/ is not ignored by {gitignore}; "
+                  "the run folder holds client data")
+
+
+def ignore_warning(root):
+    """S-16 warning when <root> is a git checkout that does not ignore AGI_Research; else None."""
+    root = Path(root)
+    if not (root / ".git").exists():
+        return None
+    gitignore = root / ".gitignore"
+    lines = gitignore.read_text(encoding="utf-8").splitlines() if gitignore.exists() else []
+    if any("AGI_Research" in line for line in lines):
+        return None
+    return IGNORE_WARNING.format(gitignore=gitignore)
+
+
 def main(argv):
     p = argparse.ArgumentParser(prog="goal.py")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -205,6 +223,9 @@ def main(argv):
     try:
         if args.cmd == "new":
             run = new(args.root, _read_json(args.src))
+            warning = ignore_warning(args.root)
+            if warning:
+                print(warning, file=sys.stderr)
             print(str(run / "goal.json"))
         elif args.cmd == "revise":
             goal = revise(args.run, _read_json(args.src), args.reason)
