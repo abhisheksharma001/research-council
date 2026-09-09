@@ -30,7 +30,10 @@ Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrie
    `scripts/triage.py --answers -`. Exit 3 means small: tell the user in one line which size
    signals were missing, then handle the task directly without this skill. Exit 0: continue.
 2. **Goal capture.** Read `references/goal.md`. Ask the user for the four budget numbers and
-   at least one success criterion; never invent either. Run `scripts/retrieve.py --query
+   at least one success criterion; never invent either. If the user has not given the
+   numbers or the criterion in this session, stop and ask again. Never copy them from a
+   fixture, a memo or an earlier run, and never write `set_by: user` for a value the user
+   did not say. Run `scripts/retrieve.py --query
    "<request text>" --library library` before writing hypotheses: its scores count shared
    words only, so read each hit's counterexamples and status line, and put the printed
    `snapshot:` line (trimmed to the skills used) in `library_snapshot`. Write the goal body and run
