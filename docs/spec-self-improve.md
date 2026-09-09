@@ -66,4 +66,5 @@ repo file and locator, and SHALL have merged nothing.
 ## Status
 | step | status | learned |
 |---|---|---|
+| S-22 | done 2026-09-09 (PR #18) | Ten minutes, 53 actions, 4 subagents, $0. The council put the fence at the top (no script lists the run folder; two runs, no recorded listing) and caught bug 6 live: six replacement claims with the originals still printed. Seven of thirteen objections were the Supervisor asserting an absence from one grep, a lone model would not have caught that. Subagent cap hit before a second Reflection, same as the first run; one seed picked which pair got judged. Merged only after the typed line `merge S-22 confirmed`; the first plain "merge" was refused. Proposed S-24, S-25. |
 | S-23 | done 2026-09-09 (PR #17) | Found in the first minute of the first self-run: the user's own must-never ("never spend") was not expressible as a budget. The fix is one condition, but it was queued and shipped before the run instead of using a made-up `$1`, because a value the user did not say is bug 1 again. Reverting the condition fails two tests, one per script, since goal.py accepts and budget.py enforces. The goal.md note is unguarded. |
