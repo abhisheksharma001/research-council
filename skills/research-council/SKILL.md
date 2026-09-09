@@ -24,13 +24,16 @@ retained task contract passes.
 - Run `scripts/triage.py` first (S-2). If it says `small`, stop and tell the user why in one line.
 
 ## Procedure
-Steps S-3 to S-11 in `docs/spec-v1.md` add one numbered step each as they land.
+Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrieval lives inside step 2.
 
 1. **Triage.** Read `references/triage.md`. Answer the five questions from the request text, run
    `scripts/triage.py --answers -`. Exit 3 means small: tell the user in one line which size
    signals were missing, then handle the task directly without this skill. Exit 0: continue.
 2. **Goal capture.** Read `references/goal.md`. Ask the user for the four budget numbers and
-   at least one success criterion; never invent either. Write the goal body and run
+   at least one success criterion; never invent either. Run `scripts/retrieve.py --query
+   "<request text>" --library library` before writing hypotheses: its scores count shared
+   words only, so read each hit's counterexamples and status line, and put the printed
+   `snapshot:` line (trimmed to the skills used) in `library_snapshot`. Write the goal body and run
    `scripts/goal.py new --root <workspace> --from <json>`. Exit 1 lists every missing field:
    fix them with the user, do not guess. The printed path is the run folder for every later
    step. Change the goal only with `scripts/goal.py revise --reason "..."`.
@@ -72,7 +75,6 @@ Steps S-3 to S-11 in `docs/spec-v1.md` add one numbered step each as they land.
    contracts) and run `python3 scripts/promote.py --candidate <dir>` yourself. It runs every task
    contract of every active library version plus the candidate's; any failure leaves the library
    untouched. Never write to `library/` by hand and never hand promotion to a subagent.
-10. (S-11 retrieval, not yet implemented) Tell the user which steps exist per the Status table in `docs/spec-v1.md`.
 
 ## Outputs
 - `AGI_Research/runs/<goal_id>/FINDINGS.md`
