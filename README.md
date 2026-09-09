@@ -23,6 +23,16 @@ claim tied to fetched evidence, and a report that says how sure it is and what i
 find. Small tasks are refused. The model never promotes its own procedures into the skill
 library; a script with a hard gate does.
 
+## Built for frontier models
+
+The harness exists to squeeze the most out of an AGI-class model, not to babysit a weak one.
+A strong model gets more room: more competing explanations, deeper evidence chains, and the
+harder problems that a coding agent would otherwise skip past. Every guard is a script, so the
+model spends its capability on the research and none of it on pretending to be careful.
+
+Works best with the most capable model available in Claude Code; developed and self-run on
+Claude Fable 5.1. Weaker models still run the loop, they just find less.
+
 ## How it works
 
 Give it a problem with more than one credible explanation. It freezes a goal and a budget you set,
