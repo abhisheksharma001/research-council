@@ -84,11 +84,39 @@ class ReportTests(unittest.TestCase):
         self.assertIn("SP-2 Partial status lookups quadrupled on the outage day. (spark in VARY)",
                       sec["What is still unknown"])
 
-    def test_handoff_chosen_is_top_rated_open_and_beat_is_next(self):
+    def test_handoff_chosen_is_top_rated_open_and_beat_is_judged_loser(self):
         body = sections(report.handoff(self.run))["Chosen approach"]
         self.assertIn("Chosen: H2 The tool was switched off", body)
         self.assertIn("Beat: H1 The upstream repair-order API was failing", body)
         self.assertIn("H2       1208    1 open", body)
+
+    def hyps(self):
+        return json.loads((self.run / "hypotheses.json").read_text(encoding="utf-8"))
+
+    def test_beat_never_names_an_unjudged_runner_up(self):
+        doc = self.hyps()
+        doc["hypotheses"][2].update(status="open", elo=1200.0, comparisons=0)  # H3 ranks second, never paired
+        (self.run / "hypotheses.json").write_text(json.dumps(doc), encoding="utf-8")
+        body = sections(report.handoff(self.run))["Chosen approach"]
+        self.assertIn("Beat: H1 The upstream", body)
+        self.assertNotIn("Beat: H3", body)
+
+    def test_beat_is_fixed_line_when_chosen_has_no_recorded_win(self):
+        (self.run / "comparisons.jsonl").unlink()
+        body = sections(report.handoff(self.run))["Chosen approach"]
+        self.assertIn("Beat: no pair judged against it.", body)
+        self.assertNotIn("Beat: H1", body)
+
+    def test_beat_ignores_a_loss_to_a_higher_rated_rival(self):
+        doc = self.hyps()
+        doc["hypotheses"][2].update(status="open", elo=1195.0, comparisons=1)  # H3 outranks H1
+        (self.run / "hypotheses.json").write_text(json.dumps(doc), encoding="utf-8")
+        with (self.run / "comparisons.jsonl").open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"pair_id": "P-2", "a": "H3", "b": "H2", "winner": "A", "winner_id": "H3",
+                                 "judgment": "j", "elo_before": [0, 0], "elo_after": [0, 0], "ts": "t"}) + "\n")
+        body = sections(report.handoff(self.run))["Chosen approach"]
+        self.assertIn("Beat: H1 The upstream", body)
+        self.assertNotIn("H3", body.split("```")[0])  # H2 lost to H3; it only appears in the table
 
     def test_files_come_only_from_file_evidence(self):
         evidence.add(self.run, {"source_type": "web", "source_uri": "https://example.test/status", "title": "status page",
