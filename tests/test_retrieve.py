@@ -159,6 +159,13 @@ class RetrieveTests(unittest.TestCase):
     def test_tokens_lowercase_strip_punctuation_and_drop_stopwords(self):
         self.assertEqual(retrieve.tokens("The Bookings, are FAILING! (a lot)"), {"bookings", "failing", "lot"})
 
+    def test_tokens_drop_all_digit_words(self):
+        self.assertEqual(retrieve.tokens("on Sep 04 774 calls failed"), {"calls", "failed", "sep"})
+
+    def test_goal_md_says_all_digit_words_never_count(self):
+        text = " ".join((ROOT / "skills" / "research-council" / "references" / "goal.md").read_text().split())
+        self.assertIn("a word that is all digits (a date, a count, an id) never counts", text)
+
     def test_score_counts_distinct_shared_tokens_not_repeats(self):
         found = retrieve.retrieve("bookings bookings bookings", self.library, scope="private")
         self.assertEqual(found["query_tokens"], ["bookings"])

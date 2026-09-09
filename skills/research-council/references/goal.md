@@ -13,11 +13,12 @@ downstream may rewrite it.
    or an earlier run, and never write `set_by: user` for a value the user did not say.
 3. Run `python3 scripts/retrieve.py --query "<request text>" --library library` before writing
    `competing_hypotheses`. Add `--scope private` only when the goal's scope allows private
-   skills (client data). The score counts shared words, nothing more: similarity is not
-   authority, so read each hit's counterexamples and boundary, and treat its status line as
-   the only claim of validity. Copy the printed `snapshot:` line into `library_snapshot`,
-   keeping only the skills the run will actually use (their contract ids come with them);
-   write `null` when nothing is used.
+   skills (client data). The score counts shared words, nothing more; a word that is all
+   digits (a date, a count, an id) never counts, so `Sep 04 774 calls failed` searches on
+   `calls failed sep` only. Similarity is not authority, so read each hit's counterexamples
+   and boundary, and treat its status line as the only claim of validity. Copy the printed
+   `snapshot:` line into `library_snapshot`, keeping only the skills the run will actually
+   use (their contract ids come with them); write `null` when nothing is used.
 
 ## Template
 Fill every field. Lists may be empty only where nothing is known; say so in `unknowns`.

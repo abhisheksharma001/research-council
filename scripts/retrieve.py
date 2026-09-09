@@ -30,8 +30,9 @@ NOT_AUTHORITY = ("similarity is not authority: scores count shared words only; "
 
 
 def tokens(text):
-    """Lowercase alphanumeric words, minus stopwords and words shorter than MIN_TOKEN."""
-    return {t for t in re.findall(r"[a-z0-9]+", text.lower()) if len(t) >= MIN_TOKEN and t not in STOPWORDS}
+    """Lowercase alphanumeric words, minus stopwords, words shorter than MIN_TOKEN, and all-digit words."""
+    return {t for t in re.findall(r"[a-z0-9]+", text.lower())
+            if len(t) >= MIN_TOKEN and t not in STOPWORDS and not t.isdigit()}
 
 
 def description_of(unit):
