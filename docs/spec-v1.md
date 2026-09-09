@@ -234,6 +234,16 @@ Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evi
 **Verify:** `python3 -m unittest tests.test_rank -v` → pass; let `pair` ignore status → exactly one test fails.
 **Must not:** change Elo values or let any council role run the command.
 
+### S-25 — Bug log row for bug 2 carries its PR
+**PR:** one (docs only).
+**Depends on:** nothing. Accepted from the Proposed section 2026-09-09.
+**Files:** `docs/bugs.md`.
+**Today:** row 2's last cell reads `S-14` while rows 1, 3, 4 and 9 read `S-n — fixed PR #m` (self-run E-15); commit aad21b2 changed `docs/bugs.md` but not that cell (E-34).
+**Change:** the cell reads `S-14 — fixed PR #13`.
+**Acceptance:** WHEN `grep -c 'S-14 — fixed PR #13 |$' docs/bugs.md` runs THEN it SHALL print 1.
+**Verify:** that grep prints 1 (it printed 0 before). The self-run's grep `grep -c 'fixed PR'` prints 5 both before and after, because row 2 already carried `fixed PR #13` in its "spec line corrected" cell; that cell goes back to `spec-v1.md S-14` so the row matches rows 1, 3, 4 and 9.
+**Must not:** touch any other row.
+
 ## Status
 | step | state | learned |
 |---|---|---|
@@ -266,13 +276,3 @@ From `docs/runs/2026-09-09-self-run.md`. Not in the register until Abhishek acce
 **Acceptance:** WHEN a reflection spawn leaves a new file in the run folder THEN `fence.py check --role reflection` SHALL exit 2 naming the file and append a journal note, and WHEN a generation spawn changes only `hypotheses.json` THEN it SHALL exit 0.
 **Verify:** `python3 -m unittest tests.test_fence -v` → pass; remove the comparison → exactly one test fails.
 **Must not:** delete files, spawn anything, or edit `agents/*.md`.
-
-### S-25 — Bug log row for bug 2 carries its PR
-**PR:** one (docs only).
-**Depends on:** nothing.
-**Files:** `docs/bugs.md`.
-**Today:** row 2's last cell reads `S-14` while rows 1, 3, 4 and 9 read `S-n — fixed PR #m` (self-run E-15); commit aad21b2 changed `docs/bugs.md` but not that cell (E-34).
-**Change:** the cell reads `S-14 — fixed PR #13`.
-**Acceptance:** WHEN `grep -c 'fixed PR' docs/bugs.md` runs THEN it SHALL print 5.
-**Verify:** that grep.
-**Must not:** touch any other row.
