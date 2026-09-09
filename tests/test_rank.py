@@ -165,6 +165,56 @@ class RankTests(unittest.TestCase):
         for word in ("claims", "verified", "promote", "library"):
             self.assertNotIn(word, code)
 
+    # stop
+    def test_stop_sets_status_and_reason_and_keeps_ratings(self):
+        self.play("H2", "H1")
+        before = self.ratings()
+        h = rank.stop(self.run, "H1", "O-11")
+        self.assertEqual((h["status"], h["stopped_reason"]), ("stopped", "O-11"))
+        doc = rank.load(self.run)
+        self.assertEqual(self.ratings(), before)
+        self.assertEqual({x["id"]: x["status"] for x in doc["hypotheses"]},
+                         {"H1": "stopped", "H2": "open", "H3": "open"})
+        self.assertEqual(len(doc["investigations"]), 1)
+
+    def test_pair_never_returns_a_stopped_hypothesis(self):
+        rank.stop(self.run, "H1", "O-11")
+        for seed in range(6):
+            rank.pair(self.run, seed)
+        drawn = {x for p in rank._jsonl(self.run / rank.PAIRS) for x in (p["a"], p["b"])}
+        self.assertEqual(drawn, {"H2", "H3"})
+
+    def test_table_shows_stopped(self):
+        rank.stop(self.run, "H1", "O-11")
+        row = [r for r in rank.table(rank.load(self.run)).splitlines() if r.startswith("H1")][0]
+        self.assertEqual(row.split()[3], "stopped")
+
+    def test_stop_refuses_unknown_non_open_and_empty_reason_without_writing(self):
+        self.write([hyp(1), hyp(2, status="refuted")])
+        before = (self.run / "hypotheses.json").read_text(encoding="utf-8")
+        for args in (("H9", "O-1"), ("H2", "O-1"), ("H1", " ")):
+            with self.assertRaises(ValueError):
+                rank.stop(self.run, *args)
+        self.assertEqual((self.run / "hypotheses.json").read_text(encoding="utf-8"), before)
+        rank.stop(self.run, "H1", "O-1")
+        with self.assertRaises(ValueError):  # already stopped
+            rank.stop(self.run, "H1", "O-2")
+
+    def test_stop_cli_and_supervisor_only_docs(self):
+        r = run_cli("stop", "--run", str(self.run), "--hyp", "H1", "--reason", "O-11")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.strip(), "H1 stopped: O-11")
+        r = run_cli("table", "--run", str(self.run))
+        self.assertIn("stopped", r.stdout)
+        council = (ROOT / "skills" / "research-council" / "references" / "council.md").read_text(encoding="utf-8")
+        stage2 = council.split("**Stage 2")[1].split("**Stage 3")[0]
+        self.assertIn("rank.py stop", stage2)
+        self.assertLess(stage2.index("Spawn Meta-review"), stage2.index("rank.py stop"))
+        meta = (ROOT / "agents" / "meta-review.md").read_text(encoding="utf-8")
+        self.assertIn("stop: H1, H4", meta)
+        for role in ("generation", "reflection", "ranking", "meta-review"):
+            self.assertNotIn("rank.py stop", (ROOT / "agents" / f"{role}.md").read_text(encoding="utf-8"))
+
     # cycles
     def test_cycles_lists_non_transitive_triple(self):
         self.play("H1", "H2")

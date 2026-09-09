@@ -33,7 +33,11 @@ investigations. Reply lines are the ids you now schedule.
    that JSON into the prompt and nothing else about the pair. Record the returned winner
    with `scripts/rank.py record` (references/rank.md). Ratings order scheduling only.
 4. Spawn Meta-review. Read its Recommendation line. `continue` gives you one next
-   investigation; `stop` ends stage 2 with the reason it gives.
+   investigation; `stop` ends stage 2 with the reason it gives. If the line ends with
+   `stop: H1, H4`, run `python3 scripts/rank.py stop --run <run> --hyp H1 --reason <O-n>`
+   once per id, with the objection id Meta-review cites as the reason. You run it; no
+   role has the tool to. A stopped hypothesis is never paired again and shows `stopped`
+   in the table; its rating is not changed.
 5. If Meta-review asked for a refinement, spawn Generation again with the parent id in
    the prompt; it appends, never rewrites.
 

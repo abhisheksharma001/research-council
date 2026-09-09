@@ -36,6 +36,16 @@ A cycle means the judgments disagree with each other; open a spark on the shared
 measurement (S-8) rather than trusting the table. Two candidates within 16 points are a
 tie for scheduling purposes (curiosity.md, S-8).
 
+## Stopping a hypothesis
+```bash
+python3 scripts/rank.py stop --run <run> --hyp H1 --reason O-11
+```
+Run once per id in Meta-review's `stop: ...` list, reason = the objection id it cites.
+Sets `status: stopped` and `stopped_reason`; refuses an unknown id, a hypothesis that is
+not `open`, or an empty reason, and writes nothing on refusal. Only the Supervisor runs
+it: no council role has Bash. `pair` never draws a stopped hypothesis; `table` shows it.
+Ratings stay as they were.
+
 ## Never
 - Never edit `elo` or `comparisons` by hand or in a prompt.
 - Never let a rating decide what goes in FINDINGS.md; only evidence-backed claims do.
