@@ -1,0 +1,14 @@
+{
+  "objections": [
+    {
+      "id": "O-1",
+      "claim_ids": ["C-2"],
+      "hypothesis_id": "H2",
+      "kind": "scope",
+      "blocking": false,
+      "text": "C-2 scope says configuration history; E-2 is one revision, not the history.",
+      "resolve_with": "evidence: config history revisions r40-r44, locator = revision ids"
+    }
+  ],
+  "stop_conditions_met": []
+}

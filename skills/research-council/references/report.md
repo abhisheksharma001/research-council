@@ -18,6 +18,7 @@ You never edit FINDINGS.md or HANDOFF.md by hand.
 |---|---|
 | What you asked | `request_text` and `desired_outcome` in goal.json |
 | What we found | every claim with at least one evidence id; `[E-n] title, locator` after each |
+| Disputed | every claim with evidence that a `blocking: true` objection in `objections.json` names in `claim_ids`; the objection id and its `resolve_with` follow the claim; it appears nowhere else. No file, or a file that is not objections JSON, is said in one fixed line and nothing is disputed |
 | Unverified | every claim with no evidence id, marked "Not findings" (invariant 2) |
 | Superseded | every claim a later `claims.py supersede` record replaced, with the replacing id and the reason; it appears nowhere else |
 | How sure | claim_type (observed / inferred / predicted, glossed) and limitations, verified claims only |

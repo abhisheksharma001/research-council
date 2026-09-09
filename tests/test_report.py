@@ -118,6 +118,8 @@ class ReportTests(unittest.TestCase):
         sources += [c[k].rstrip(".") for c in g["success_criteria"] for k in c]
         sources += [c["statement"] for c in self.jsonl("claims.jsonl")]
         sources += [c["limitations"] for c in self.jsonl("claims.jsonl") if c["limitations"]]
+        objs = json.loads((self.run / "objections.json").read_text(encoding="utf-8"))["objections"]
+        sources += [o["resolve_with"] for o in objs]
         sources += [r[k] for r in self.jsonl("evidence.jsonl") for k in ("title", "locator", "source_uri")]
         sources += [h["statement"][:40] for h in hyps]
         sources += [s["observation"] for s in sparks]
@@ -155,6 +157,75 @@ class ReportTests(unittest.TestCase):
         for line in sections(report.findings(self.run))["Superseded"].splitlines():
             if line.strip():
                 self.assertTrue(any(f in line for f in fixed), line)
+
+    # S-17 acceptance: a claim under a blocking objection shows only under Disputed
+    def block(self, claim_id, blocking=True):
+        p = self.run / "objections.json"
+        d = json.loads(p.read_text(encoding="utf-8"))
+        d["objections"].append({"id": "O-2", "claim_ids": [claim_id], "hypothesis_id": "H1",
+                                "kind": "provenance", "blocking": blocking,
+                                "text": "count not in excerpt",
+                                "resolve_with": "evidence: the rows themselves, locator = row numbers"})
+        p.write_text(json.dumps(d), encoding="utf-8")
+
+    def test_blocking_objection_moves_claim_to_disputed(self):
+        self.block("C-2")
+        sec = sections(report.findings(self.run))
+        self.assertIn("- C-2 The lookup tool was disabled in configuration revision r42 two minutes "
+                      "before the outage began. Objection O-2: evidence: the rows themselves, "
+                      "locator = row numbers", sec["Disputed"])
+        self.assertIn("**C-1**", sec["What we found"])
+        for name, body in sec.items():
+            if name != "Disputed":
+                self.assertNotIn("C-2", body, name)
+
+    def test_non_blocking_objection_changes_nothing(self):
+        sec = sections(report.findings(self.run))
+        self.assertIn(report.NONE, sec["Disputed"])
+        self.assertIn("**C-2**", sec["What we found"])
+        self.assertNotIn("O-1", report.findings(self.run))
+
+    def test_blocked_unverified_claim_stays_under_unverified(self):
+        self.block("C-3")
+        sec = sections(report.findings(self.run))
+        self.assertIn("C-3", sec["Unverified"])
+        self.assertNotIn("C-3", sec["Disputed"])
+
+    def test_blocked_superseded_claim_stays_under_superseded(self):
+        self.block("C-1")
+        claims.supersede(self.run, "C-1", "C-2", "C-2 explains the gap")
+        sec = sections(report.findings(self.run))
+        self.assertIn("C-1", sec["Superseded"])
+        self.assertNotIn("C-1", sec["Disputed"])
+
+    def test_missing_objections_file_is_one_fixed_line(self):
+        (self.run / "objections.json").unlink()
+        sec = sections(report.findings(self.run))
+        self.assertIn(report.FIXED["no_objections_file"], sec["Disputed"])
+        self.assertIn("**C-2**", sec["What we found"])
+
+    def test_malformed_objections_file_is_one_fixed_line_and_ignored(self):
+        (self.run / "objections.json").write_text('{"objections": [{"id": "O-9"}]}', encoding="utf-8")
+        sec = sections(report.findings(self.run))
+        self.assertIn(report.FIXED["bad_objections_file"], sec["Disputed"])
+        self.assertIn("**C-2**", sec["What we found"])
+        (self.run / "objections.json").write_text("not json", encoding="utf-8")
+        self.assertIn(report.FIXED["bad_objections_file"], sections(report.findings(self.run))["Disputed"])
+
+    def test_blocking_must_be_json_true_not_a_truthy_string(self):
+        self.block("C-2", blocking="true")
+        sec = sections(report.findings(self.run))
+        self.assertIn(report.FIXED["bad_objections_file"], sec["Disputed"])
+        self.assertIn("**C-2**", sec["What we found"])
+
+    def test_disputed_lines_stay_traceable_and_claims_file_untouched(self):
+        before = (self.run / "claims.jsonl").read_bytes()
+        self.block("C-2")
+        fixed = list(report.FIXED.values())
+        for line in sections(report.findings(self.run))["Disputed"].splitlines():
+            if line.strip():
+                self.assertTrue(any(f in line for f in fixed), line)
+        self.assertEqual((self.run / "claims.jsonl").read_bytes(), before)
 
     # robustness
     def test_missing_hypotheses_and_sparks_render_none_recorded(self):
