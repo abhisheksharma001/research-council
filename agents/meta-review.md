@@ -34,7 +34,7 @@ You write exactly one file: `meta.md` in the run folder. Overwrite it; the journ
 <one investigation id from hypotheses.json, or one new action in one sentence, and which hypotheses it discriminates>
 
 ## Recommendation
-continue | stop — <reason>
+continue | stop — <reason>; stop: H1, H4
 ```
 
 Rules:
@@ -43,5 +43,8 @@ Rules:
   met or its rival refuted by evidence-backed claims; no investigation in
   `hypotheses.json` discriminates two open hypotheses; or the previous meta.md's next
   investigation was run and moved nothing. Say which.
+- `stop: H1, H4` at the end of the Recommendation line names every open hypothesis whose
+  stop condition is met, each backed by an objection id in the table above. Leave it off
+  when there is none. You name them; the Supervisor runs the script that marks them.
 - Never mark a claim verified, never change a rating, never edit any other file.
 - Reply with the Recommendation line only.

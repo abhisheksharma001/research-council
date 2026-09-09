@@ -6,6 +6,7 @@ Usage:
   python3 scripts/rank.py record --run <run-dir> --pair <P-n> --winner A|B|draw --judgment <text>
   python3 scripts/rank.py cycles --run <run-dir>
   python3 scripts/rank.py table  --run <run-dir>
+  python3 scripts/rank.py stop   --run <run-dir> --hyp <H-n> --reason <text>
 
 pair    picks two open hypotheses (fewest comparisons first, then highest rating;
         the opponent prefers an unplayed pair, then shared opponents, then rating),
@@ -15,10 +16,13 @@ pair    picks two open hypotheses (fewest comparisons first, then highest rating
 record  looks the pair up, appends one line to comparisons.jsonl and updates `elo` and
         `comparisons` on both hypotheses (start 1200, K=16, win 1 / draw 0.5 / loss 0).
 cycles  prints every non-transitive triple X > Y > Z > X among recorded wins.
-table   prints ratings, highest first, with comparison counts.
+table   prints ratings, highest first, with comparison counts and status.
+stop    sets one open hypothesis to status `stopped` with `stopped_reason` (the Supervisor
+        runs it for each id Meta-review names; no council role may). Ratings untouched;
+        `pair` never draws a stopped hypothesis.
 
-Ratings order scheduling only. This script never reads claims, never writes a status,
-and has no path to the library or the promote script.
+Ratings order scheduling only. This script never reads claims, writes no status other
+than `stopped`, and has no path to the library or the promote script.
 
 Exit 0 ok, 1 invalid input or refused.
 """
@@ -40,6 +44,7 @@ K = 16
 SCORE = {"A": (1.0, 0.0), "B": (0.0, 1.0), "draw": (0.5, 0.5)}
 BLIND_FIELDS = ("statement", "predicted_result", "needed_evidence", "stop_condition")
 ELIGIBLE_STATUS = "open"
+STOPPED_STATUS = "stopped"
 
 
 def _jsonl(path):
@@ -147,6 +152,22 @@ def record(run, pair_id, winner, judgment):
     return line
 
 
+def stop(run, hyp_id, reason):
+    """Mark one open hypothesis stopped with a reason. Writes nothing on refusal. Raises ValueError."""
+    if not isinstance(reason, str) or not reason.strip():
+        raise ValueError("reason must be a non-empty string (the objection id)")
+    doc = load(run)
+    h = _by_id(doc).get(hyp_id)
+    if h is None:
+        raise ValueError(f"unknown hypothesis: {hyp_id}")
+    if h.get("status") != ELIGIBLE_STATUS:
+        raise ValueError(f"{hyp_id} is {h.get('status')}, not open; only an open hypothesis can be stopped")
+    h["status"] = STOPPED_STATUS
+    h["stopped_reason"] = reason.strip()
+    save(run, doc)
+    return h
+
+
 def cycles(run):
     """Return sorted list of (x, y, z) with x beat y, y beat z, z beat x. Draws are ignored."""
     beats = {}
@@ -190,6 +211,10 @@ def main(argv):
     s.add_argument("--judgment", required=True)
     for name in ("cycles", "table"):
         sub.add_parser(name).add_argument("--run", required=True)
+    s = sub.add_parser("stop")
+    s.add_argument("--run", required=True)
+    s.add_argument("--hyp", required=True)
+    s.add_argument("--reason", required=True)
     args = p.parse_args(argv[1:])
     try:
         if args.cmd == "pair":
@@ -198,6 +223,9 @@ def main(argv):
             line = record(args.run, args.pair, args.winner, args.judgment)
             ra, rb = line["elo_after"]
             print(f"{line['pair_id']} {line['winner']}: {line['a']} {round(ra)}, {line['b']} {round(rb)}")
+        elif args.cmd == "stop":
+            h = stop(args.run, args.hyp, args.reason)
+            print(f"{h['id']} {h['status']}: {h['stopped_reason']}")
         elif args.cmd == "cycles":
             found = cycles(args.run)
             for x, y, z in found:
