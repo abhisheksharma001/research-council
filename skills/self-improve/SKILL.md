@@ -33,8 +33,8 @@ Nothing else is a source. Not the user's other projects, not `~/.claude`, not an
    The user asked for an investigation, two explanations of "weakest part" always compete,
    and the answer touches more than one file. Run `scripts/triage.py` anyway for the journal.
 2. **Goal.** Ask the user for the four budget numbers and one success criterion in their words,
-   exactly as `references/goal.md` says. Never copy them from this file, a fixture, a memo or an
-   earlier run note. The rest of the goal has a fixed shape:
+   exactly as `references/goal.md` says. Never copy them from this file, a fixture, a memo or
+   an earlier run note. The rest of the goal has a fixed shape:
    - `request_text`: the user's request verbatim.
    - `observations`: only facts read from the inputs above, each with the file that holds it.
    - `competing_hypotheses`: at least two, each of the form "the weakest part is X, because

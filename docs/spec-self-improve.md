@@ -53,6 +53,17 @@ repo file and locator, and SHALL have merged nothing.
 **Verify:** `git diff main --stat` shows only the two files; `python3 -m unittest discover -s tests` still passes.
 **Must not:** merge anything; write to `library/`; read outside this repo.
 
+### S-23 — A zero dollar cap is a valid budget
+**PR:** one.
+**Depends on:** S-4.
+**Files:** `scripts/goal.py`, `tests/test_goal.py`, `tests/test_budget.py`, `skills/research-council/references/goal.md`.
+**Today:** `goal.py` line 109 rejects every budget number at or below zero, so `"usd_estimate_cap": 0` fails with `must be a number above 0` and a no-spend run cannot be expressed (bug 9).
+**Change:** accept `0` for `usd_estimate_cap` only; goal.md says zero means no paid call.
+**Acceptance:** WHEN the budget carries `"usd_estimate_cap": 0` THEN `goal.py new` SHALL write the goal, and WHEN the journal's first metered cost is recorded THEN `budget.py check` SHALL exit 2.
+**Verify:** `python3 -m unittest tests.test_goal tests.test_budget -v` → pass; revert the condition → the two new tests fail.
+**Must not:** change the other three floors or `budget.py`.
+
 ## Status
 | step | status | learned |
 |---|---|---|
+| S-23 | done 2026-09-09 (PR #17) | Found in the first minute of the first self-run: the user's own must-never ("never spend") was not expressible as a budget. The fix is one condition, but it was queued and shipped before the run instead of using a made-up `$1`, because a value the user did not say is bug 1 again. Reverting the condition fails two tests, one per script, since goal.py accepts and budget.py enforces. The goal.md note is unguarded. |
