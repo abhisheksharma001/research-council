@@ -38,8 +38,11 @@ Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrie
    words only, so read each hit's counterexamples and status line, and put the printed
    `snapshot:` line (trimmed to the skills used) in `library_snapshot`. Write the goal body and run
    `scripts/goal.py new --root <workspace> --from <json>`. Exit 1 lists every missing field:
-   fix them with the user, do not guess. The printed path is the run folder for every later
-   step. Change the goal only with `scripts/goal.py revise --reason "..."`.
+   fix them with the user, do not guess. If it prints `warning: AGI_Research/ is not
+   ignored`, the workspace is a git checkout that would track the run folder: tell the user
+   and add the line `AGI_Research/` to the workspace `.gitignore` only with their go. The
+   printed path is the run folder for every later step. Change the goal only with
+   `scripts/goal.py revise --reason "..."`.
 3. **Budget and journal.** Read `references/budget.md`. After every fetch, read, write,
    subagent spawn or command, run `scripts/journal.py add --run <run> --kind <kind>
    --cost_usd <float|null> --detail "..."`. Before every subagent spawn and after every
