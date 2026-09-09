@@ -8,7 +8,9 @@ downstream may rewrite it.
 1. Ask the user for the four budget numbers (`minutes`, `max_actions`, `max_subagents`,
    `usd_estimate_cap`). The script has no defaults and will refuse a goal without them.
 2. Ask for at least one success criterion in the user's words. If the user cannot give one,
-   stop and say so. Never invent one.
+   stop and say so. Never invent one. If the user has not given the numbers or the
+   criterion in this session, stop and ask again. Never copy them from a fixture, a memo
+   or an earlier run, and never write `set_by: user` for a value the user did not say.
 3. Run `python3 scripts/retrieve.py --query "<request text>" --library library` before writing
    `competing_hypotheses`. Add `--scope private` only when the goal's scope allows private
    skills (client data). The score counts shared words, nothing more: similarity is not

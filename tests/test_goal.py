@@ -140,5 +140,25 @@ class GoalTests(unittest.TestCase):
         self.assertIn("competing_hypotheses", bad.stderr)
 
 
+SILENT_USER_SENTENCE = (
+    "If the user has not given the numbers or the criterion in this session, stop and ask "
+    "again. Never copy them from a fixture, a memo or an earlier run, and never write "
+    "`set_by: user` for a value the user did not say."
+)
+
+
+class SilentUserSentence(unittest.TestCase):
+    """S-13: a silent user never gets a copied budget or criterion (bug 1, 2026-09-09)."""
+
+    def test_goal_md_and_skill_md_carry_silent_user_sentence(self):
+        files = [
+            ROOT / "skills" / "research-council" / "references" / "goal.md",
+            ROOT / "skills" / "research-council" / "SKILL.md",
+        ]
+        for path in files:
+            text = " ".join(path.read_text(encoding="utf-8").split())
+            self.assertIn(SILENT_USER_SENTENCE, text, f"{path.relative_to(ROOT)} lacks the silent-user sentence")
+
+
 if __name__ == "__main__":
     unittest.main()
