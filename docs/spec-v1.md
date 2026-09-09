@@ -253,3 +253,26 @@ Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evi
 | S-14 | done 2026-09-09 (PR #13) | Pure procedure text again: nothing in code can register a subagent type, so the fix is to tell the Supervisor what to do when the type is missing. The honest part of the block is the admission that the role file's `tools:` fence is then unenforced; a general-purpose agent has every tool, so the run-folder listing after the spawn is the only real fence and the text says so. The test slices the block between its bold heading and the next `##` heading and whitespace-normalises it, so a 95-column wrap landing inside a quoted sentence does not fail it (first run did, on "nothing\nin it"). Three breaks, one fail each. |
 | S-15 | done 2026-09-09 (PR #14) | One-token change in code (`not t.isdigit()`) and the real work was the register: the step named `references/retrieve.md`, which never existed, so the token rule went into goal.md step 3 where retrieval is already routed, and the Files field was corrected here rather than creating a file to satisfy a wrong path. Two tests, one per file; two breaks, one fail each. Acceptance held on the CLI: `query tokens: calls failed sep`. |
 | S-16 | done 2026-09-09 (PR #15) | The check is a read-only function beside `main`, so `new()` stays pure and the warning is testable through the CLI only, which is where a user would see it. Verify said "exactly one test fails" but removing the check fails two, because "no `.gitignore` at all" and "`.gitignore` without the rule" are separate scenarios that both guard the same line; two honest fails beat one merged test. The rule match is a substring on any line, so `AGI_Research`, `AGI_Research/` and `/AGI_Research/**` all count; a commented-out line would too, which is the known gap. |
+
+## Proposed (self-run 2026-09-09)
+From `docs/runs/2026-09-09-self-run.md`. Not in the register until Abhishek accepts one; ship each as its own PR. This run also confirmed bug 6 (S-18) in the wild: six replacement claims, originals still printed as findings. S-18 should move ahead of S-17.
+
+### S-24 — After-spawn fence is a script
+**PR:** one.
+**Depends on:** S-14.
+**Files:** `scripts/fence.py`, `tests/test_fence.py`, `skills/research-council/references/council.md`.
+**Today:** `references/council.md` "After every spawn" says "this listing is the fence", but `grep -n 'listdir\|scandir\|iterdir\|glob(' scripts/*.py` returns only `promote.py:64` (self-run E-25, E-39); the first-run note records no listing after any spawn (E-37); in the self-run the listing was `ls` by hand (E-40).
+**Change:** `scripts/fence.py snapshot --run <run> --role <role>` writes `<run>/fence/<role>.json` with every file in the run folder and its sha256. `scripts/fence.py check --run <run> --role <role>` compares the folder with that snapshot: allowed changes are `hypotheses.json` for generation, `meta.md` for meta-review, nothing for reflection and ranking. Every other new or changed file is printed as `violation: <role> wrote <file>`, a `note` is appended to the journal, and the exit code is 2; exit 0 when clean. The script deletes nothing. council.md "Every spawn" block replaces the prose listing with the two commands.
+**Acceptance:** WHEN a reflection spawn leaves a new file in the run folder THEN `fence.py check --role reflection` SHALL exit 2 naming the file and append a journal note, and WHEN a generation spawn changes only `hypotheses.json` THEN it SHALL exit 0.
+**Verify:** `python3 -m unittest tests.test_fence -v` → pass; remove the comparison → exactly one test fails.
+**Must not:** delete files, spawn anything, or edit `agents/*.md`.
+
+### S-25 — Bug log row for bug 2 carries its PR
+**PR:** one (docs only).
+**Depends on:** nothing.
+**Files:** `docs/bugs.md`.
+**Today:** row 2's last cell reads `S-14` while rows 1, 3, 4 and 9 read `S-n — fixed PR #m` (self-run E-15); commit aad21b2 changed `docs/bugs.md` but not that cell (E-34).
+**Change:** the cell reads `S-14 — fixed PR #13`.
+**Acceptance:** WHEN `grep -c 'fixed PR' docs/bugs.md` runs THEN it SHALL print 5.
+**Verify:** that grep.
+**Must not:** touch any other row.
