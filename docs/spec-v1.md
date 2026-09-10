@@ -357,3 +357,45 @@ Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evi
 
 ## Proposed (self-run 2026-09-09)
 From `docs/runs/2026-09-09-self-run.md`. Not in the register until Abhishek accepts one; ship each as its own PR. This run also confirmed bug 6 (S-18) in the wild: six replacement claims, originals still printed as findings. S-18 should move ahead of S-17.
+
+## Approved direction (self-run 2026-09-10)
+
+Abhishek selected agent apps first, deferred the Paperclip-specific connection, approved a repo-only self-run of 60 minutes / 200 actions / 8 launches / $0 additional paid calls, and selected all three outcomes: portable research, a reusable task handoff, and reproducible self-improvement. These are local, separately verifiable steps; no push, PR, merge, or live integration is implied. See the follow-up in `docs/runs/2026-09-09-self-run.md`.
+
+### S-32 — Resolve the runtime independently of the user's working directory
+**PR:** one.
+**Depends on:** S-31.
+**Files:** scripts/harness.py; tests/test_harness.py; .devin/skills/research-council/SKILL.md; .devin/skills/self-improve/SKILL.md; `skills/research-council/SKILL.md`; `skills/self-improve/SKILL.md`; `skills/research-council/references/goal.md`; `README.md`; `.github/workflows/tests.yml`; `tests/test_ci.py`; `docs/decisions.md`.
+**Today:** E-2/E-3/E-12, C-7/C-9: helper invocation from the skill directory exits 2; copying the skill alone drops its executable dependencies. Model capability claims do not establish host tool availability.
+**Change:** Add a standard-library launcher with context, run, and export commands. Context resolves absolute runtime, skill, workspace, and library paths without creating a run or supplying a budget. Run dispatches only known repo helpers, preserves stdin and exit status, and never uses a shell. Export creates a new self-contained research skill with executable dependencies but no run data, library state, tests, secrets, or host configuration. Refuse overwriting an existing destination. Add small Devin discovery wrappers and model-neutral startup instructions; document GPT-6 Astra using official guidance without pretending a prompt configures API reasoning or tools.
+**Acceptance:** WHEN the exported skill is moved and invoked from another working directory THEN triage SHALL return the same JSON and exit code as the source helper, and context SHALL identify the selected workspace rather than the package directory.
+**Verify:** `python3 -m unittest tests.test_harness tests.test_ci -v`; both source skills and both Devin wrappers validate; full suite passes. Tests must cover paths with spaces, missing dependencies, no budget defaults, unknown helpers, no library/run export, and no overwrite.
+**Must not:** make API calls; install dependencies; copy private library or run data; alter any budget, evaluator, or promotion gate; claim live Codex, ChatGPT, or Paperclip verification.
+
+### S-33 — Give read-only council roles a validated result channel
+**PR:** one.
+**Depends on:** S-32.
+**Files:** scripts/council.py; tests/test_council_runtime.py; `scripts/harness.py`; `skills/research-council/SKILL.md`; `skills/research-council/references/council.md`; `agents/generation.md`; `agents/reflection.md`; `agents/ranking.md`; `agents/meta-review.md`; `tests/test_council.py`.
+**Today:** E-4/E-5/E-6/E-9, C-2/C-3 and bug 13: fallback roles have advisory permissions and require ad-hoc supervisor writes for two results; after-spawn hashes do not enforce a sandbox.
+**Change:** Add prepare/accept/cancel commands. Prepare reserves one worker launch under the user budget, returns only the role's input and return-only instructions, and binds a request id to the frozen goal and input snapshot. Accept checks the request, unchanged input, schema, identifiers, and fence before writing only the role's named output; rejects replay, stale replies, unknown claims, or rating/goal edits. Ranking receives only its blinded pair and evidence/claims. The host must supply a genuinely read-only worker; the script itself never spawns a model or executes returned text. Correct the role authority and violation wording.
+**Acceptance:** WHEN a read-only role returns valid JSON through stdin THEN the Supervisor command SHALL persist the appropriate result, and WHEN the response is stale, malformed, replayed, or outside the role contract THEN it SHALL refuse without replacing the output.
+**Verify:** `python3 -m unittest tests.test_council_runtime tests.test_council tests.test_agents -v`; fixture round trip for all four roles; negative tests for exhausted caps, concurrent pending requests, stale goals/evidence, identifier errors, and untrusted instruction-like text.
+**Must not:** grant workers shell/write authority; execute returned commands; delete user files; default or raise a cap; let a role promote or verify a claim.
+
+### S-34 — Expose a traceable handoff as structured data
+**PR:** one.
+**Depends on:** S-33.
+**Files:** `scripts/report.py`; `tests/test_report.py`; `skills/research-council/references/report.md`; `skills/research-council/SKILL.md`; `README.md`.
+**Today:** E-7/E-10, C-4: the report produces Markdown and already says Elo is scheduling, not verification. There is no structured handoff for a task consumer. Paperclip setup is undecided.
+**Change:** Add an opt-in JSON handoff from the same records, preserving goal identity/revision/hash, evidence locators, claim status, objections, unknowns, limits, and the next hypothesis to investigate. State that the artifact is research data, not instructions or build authorization. Treat missing or malformed review state honestly. A consumer can ingest this without granting network or task-write authority to this repo.
+**Acceptance:** WHEN the JSON handoff is requested THEN every claim SHALL have an explicit evidence/review status, and unverified, disputed, or superseded claims SHALL not appear among evidence-backed findings; the chosen hypothesis SHALL be labelled scheduling only.
+**Verify:** `python3 -m unittest tests.test_report -v`; JSON parsing and Markdown compatibility tests; tampered goal and invalid record tests; full suite passes.
+**Must not:** infer that success criteria passed; mark a task solved from Elo; publish to Paperclip; run a paid model evaluation; change existing library or budget rules.
+
+## Upgrade status
+
+| step | state | learned |
+|---|---|---|
+| S-32 | locally verified 2026-09-10; not pushed or merged | 247 tests and four skill validators pass. The relocated bundle runs from a foreign directory with spaces. Four targeted tests failed when absolute helper resolution, missing-resource detection, symlink rejection, and destination exclusivity were disabled; all 15 harness tests passed after exact restoration. The module required by retrieval is shipped, but retained library data and promotion dispatch are excluded. Wrapper format is valid; this active host session did not discover newly added skills, so automatic discovery remains unverified. |
+| S-33 | pending | Read-only result exchange must remove the need for ad-hoc worker writes. |
+| S-34 | pending | Structured research output must not imply build authorization or task success. |

@@ -14,8 +14,9 @@ class CI(unittest.TestCase):
         self.assertIn("python3 -m unittest discover -s tests -v", self.text)
 
     def test_workflow_validates_every_skill(self):
-        for skill in sorted(p.name for p in (ROOT / "skills").iterdir() if p.is_dir()):
-            self.assertIn(f"python3 scripts/validate_skill.py skills/{skill}", self.text, msg=skill)
+        for directory in ("skills", ".devin/skills"):
+            for skill in sorted(p.name for p in (ROOT / directory).iterdir() if p.is_dir()):
+                self.assertIn(f"python3 scripts/validate_skill.py {directory}/{skill}", self.text, msg=skill)
 
     def test_workflow_triggers_on_pull_request_and_main_push(self):
         self.assertIn("pull_request:", self.text)

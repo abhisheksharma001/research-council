@@ -2,7 +2,7 @@
 name: self-improve
 description: Run research-council on its own repository to find the weakest part of the plugin and turn the findings into proposed register steps. Use when asked to improve, audit, or review research-council itself, or to continue its self-improvement loop. Ends with FINDINGS.md in an ignored run folder, a run note in docs/runs/, and S-n rows in docs/spec-v1.md. Never merges, never spends money, never leaves this repository.
 license: MIT
-compatibility: Designed for Claude Code inside a checkout of research-council; needs the sibling research-council skill and scripts/.
+compatibility: Tool-capable agent hosts inside a full research-council checkout, including Claude Code and Devin. Requires Python 3.11+, the sibling research-council skill, repo tests and read-only council workers. Not available from a research-only export.
 metadata:
   schema_version: "1"
   record_type: research-procedure
@@ -18,7 +18,17 @@ Think of it as the same n8n workflow with the trigger pinned: the input is alway
 research-council weakest", and the last node writes register rows instead of a client report.
 
 The run is written for whatever AGI-class model is current (`## Who runs this` in
-`docs/spec-v1.md`): a newer model should find more, not follow less.
+`docs/spec-v1.md`). A newer model's proposed changes still need observed failures and tests;
+model confidence and passing prompt-format checks do not establish better research.
+
+## Runtime
+
+Resolve the full checkout from this skill's actual location: two directories above its folder.
+Use that checkout as both COUNCIL_ROOT and WORKSPACE in the sibling skill's runtime preflight.
+Require context mode `checkout` and the repo tests; an exported research-only package is not
+this repository and cannot self-improve the installed source. All paths below are relative
+to that checkout. Read only repo evidence during the run. Review external model documentation
+as a separate engineering task, not by silently expanding this run's frozen scope.
 
 ## Inputs (repo files only)
 - `docs/spec-v1.md`: the register, its Status table, and the steps still open.
@@ -36,7 +46,7 @@ Nothing else is a source. Not the user's other projects, not `~/.claude`, not an
    The user asked for an investigation, two explanations of "weakest part" always compete,
    and the answer touches more than one file. Run `scripts/triage.py` anyway for the journal.
 2. **Goal.** Ask the user for the four budget numbers and one success criterion in their words,
-   exactly as `references/goal.md` says. Never copy them from this file, a fixture, a memo or
+   exactly as `skills/research-council/references/goal.md` says. Never copy them from this file, a fixture, a memo or
    an earlier run note. The rest of the goal has a fixed shape:
    - `request_text`: the user's request verbatim.
    - `observations`: only facts read from the inputs above, each with the file that holds it.
@@ -52,16 +62,21 @@ Nothing else is a source. Not the user's other projects, not `~/.claude`, not an
    and `access_scope` `public`. A claim about the plugin with no such record is unverified and
    stays out of the findings.
 4. **Council, ranking, report** exactly as the research-council skill says, within the
-   budget the user gave. The roles are spawned through the fallback in `references/council.md`
-   when they are not registered subagent types.
+   budget the user gave. Use `skills/research-council/references/council.md` for the host's
+   read-only fallback when native roles are not registered. Inspect suggested paths and
+   contradictory predictions rather than trusting a role's confident wording.
 5. **Close.** After `scripts/report.py`:
-   - Write `docs/runs/<date>-self-run.md`: what was run, budget at close, what the council
-     found, what it got wrong. Plain English, no client names, no paths outside the repo.
+   - Record what was run, budget at close, what the council found, and what it got wrong in
+     a dated section of an existing `docs/runs/` note, or a new run note when project rules
+     permit one. Plain English, no client names, no paths outside the repo. Label adaptations,
+     missing records, unmetered actions, and untested hosts explicitly.
    - For each finding that names a change, append one step to `docs/spec-v1.md` under a
      heading `## Proposed (self-run <date>)` in the register's step format, with `**Today:**`
      citing the evidence record's file and locator. Number from the next free S-n.
-   - Open one PR with those two files only. The run folder never enters a commit.
-   - Tell the user which step you recommend first and stop.
+   - Open one PR with those two files only if publishing was explicitly authorized;
+     otherwise leave the changes local. The run folder never enters a commit.
+   - Tell the user which step you recommend first and stop. Implementing it is a separate
+     authorized engineering step, not a way to revise a failed research result into success.
 
 ## Must never
 1. Never merge a pull request unless the user has typed the line `merge S-<n> confirmed` with
@@ -75,5 +90,5 @@ Nothing else is a source. Not the user's other projects, not `~/.claude`, not an
 
 ## Outputs
 - `AGI_Research/runs/<goal_id>/FINDINGS.md` and `HANDOFF.md` (ignored by git).
-- `docs/runs/<date>-self-run.md`.
+- A dated, de-identified entry in the repo's existing run notes.
 - Proposed steps in `docs/spec-v1.md`; nothing merged.
