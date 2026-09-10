@@ -16,3 +16,11 @@ Format: date | where seen | what was seen | repro | spec line corrected | step q
 | 2026-09-10 | `scripts/report.py` `handoff()`; found while shipping S-20 | Chosen is the top-rated hypothesis with any status but `refuted`, so a hypothesis stopped by `rank.py stop` can be printed as `Chosen:` in HANDOFF.md. | On `tests/fixtures/run_min` run `rank.py stop --hyp H2 --reason O-1` then `report.py --run <copy>`: HANDOFF.md still reads `Chosen: H2`. | spec-v1.md S-29 (Chosen must be `open`) | S-29 — fixed PR #30 |
 
 Bugs 1-8 found in the first dry run: `docs/runs/2026-09-09-first-run.md`. Bug 9 found by the first self-run (S-22). Bug 10 found while shipping S-20.
+
+## 2026-09-10 portability self-run
+
+| id | evidence and reproduction | correction | state |
+|---|---|---|---|
+| 11 | E-2/E-3/E-12, C-7/C-9: the skill folder contains only SKILL.md and references. Invoking `python3 scripts/triage.py --answers -` with the fixed self-improve answers from `skills/research-council/` exits 2 because the helper is at the checkout root. A full checkout and absolute helper path work around this; no claim that every other host fails. | S-32: explicit runtime/workspace roots, portable export, and a foreign-working-directory test. | queued |
+| 12 | E-4/E-5/E-6/E-9, C-2/C-3: Generation calls its tool list the only limit; the fallback admits that list is unenforced. The fence hashes only run files, excluding journal/fence; it cannot prevent outside writes. The static test preserves the misleading wording. | S-33: return-only roles, validated result ingestion, and explicit host-enforced permissions. Never delete a violating file automatically. | queued |
+| 13 | During this host run the editor refused ignored-file writes even after a directory scope grant. Existing goal/evidence/claims commands accepted stdin, but Reflection and Meta-review had no equivalent ingestion command. Their replies stayed in the journal rather than objections.json/meta.md. This is a host integration limitation, not a permission bypass to implement. | S-33: a supervisor-owned command accepts validated role replies through stdin, without giving workers write access. | queued |

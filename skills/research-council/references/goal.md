@@ -13,8 +13,11 @@ downstream may rewrite it.
    stop and say so. Never invent one. If the user has not given the numbers or the
    criterion in this session, stop and ask again. Never copy them from a fixture, a memo
    or an earlier run, and never write `set_by: user` for a value the user did not say.
-3. Run `python3 scripts/retrieve.py --query "<request text>" --library library` before writing
-   `competing_hypotheses`. Add `--scope private` only when the goal's scope allows private
+3. Use the absolute runtime and workspace paths returned by `scripts/harness.py context`.
+   When its `library` path is present, run `python3 scripts/retrieve.py --query "<request text>" --library <absolute-library>` before writing
+   `competing_hypotheses`. A portable export has no retained library: disclose this and use
+   `library_snapshot: null`; never invent a registry, validation or prior result.
+   Add `--scope private` only when the goal's scope allows private
    skills (client data). The score counts shared words, nothing more; a word that is all
    digits (a date, a count, an id) never counts, so `Sep 04 774 calls failed` searches on
    `calls failed sep` only. Similarity is not authority, so read each hit's counterexamples
