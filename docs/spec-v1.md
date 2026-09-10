@@ -313,6 +313,16 @@ Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evi
 **Verify:** `grep -c '^## Who runs this' docs/spec-v1.md` → 1; `grep -L 'AGI-class model' agents/*.md skills/*/SKILL.md` → empty; `python3 -m unittest tests.test_who_runs_this -v` → pass.
 **Must not:** change any `tools:` line; touch scripts/; rename the product (O-19); name a model Claude Code cannot run.
 
+### S-31 — CI runs the Verify commands on every push and PR
+**PR:** one.
+**Depends on:** S-1.
+**Files:** `.github/workflows/tests.yml`, `tests/test_ci.py`.
+**Today:** Every Status row from S-2 to S-11 ends "Still no CI" (memo O-05). The mystandard "wait for CI" step has been skipped thirty times; tests run only on whoever's laptop opened the PR.
+**Change:** One GitHub Actions workflow, `tests`, on push to `main` and on every pull request: Python 3.11 and 3.12, checkout, run `python3 -m unittest discover -s tests -v`, then `python3 scripts/validate_skill.py` on each skill. No install step: the repo is stdlib only and the workflow must stay that way. The node-only GIF test already skips when node is absent, so the runner needs no node. A test reads the workflow and checks it runs the suite, validates every folder under `skills/`, triggers on both events, and installs nothing.
+**Acceptance:** WHEN a pull request is opened THEN GitHub SHALL run job `unittest` on Python 3.11 and 3.12 and each run SHALL pass, and WHEN `.github/workflows/tests.yml` is read THEN it SHALL contain no `pip install`.
+**Verify:** `gh pr checks <n>` → both `unittest` runs pass; `python3 -m unittest tests.test_ci -v` → pass.
+**Must not:** add a dependency or an install step; run anything on a schedule; touch scripts/ or any skill.
+
 ## Status
 | step | state | learned |
 |---|---|---|
