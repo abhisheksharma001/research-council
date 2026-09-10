@@ -374,7 +374,7 @@ Abhishek selected agent apps first, deferred the Paperclip-specific connection, 
 
 ### S-33 — Give read-only council roles a validated result channel
 **PR:** one.
-**Depends on:** S-32.
+**Depends on:** S-32, S-35 (invalid ledger data must not admit a worker).
 **Files:** scripts/council.py; tests/test_council_runtime.py; `scripts/harness.py`; `skills/research-council/SKILL.md`; `skills/research-council/references/council.md`; `agents/generation.md`; `agents/reflection.md`; `agents/ranking.md`; `agents/meta-review.md`; `tests/test_council.py`.
 **Today:** E-4/E-5/E-6/E-9, C-2/C-3 and bug 13: fallback roles have advisory permissions and require ad-hoc supervisor writes for two results; after-spawn hashes do not enforce a sandbox.
 **Change:** Add prepare/accept/cancel commands. Prepare reserves one worker launch under the user budget, returns only the role's input and return-only instructions, and binds a request id to the frozen goal and input snapshot. Accept checks the request, unchanged input, schema, identifiers, and fence before writing only the role's named output; rejects replay, stale replies, unknown claims, or rating/goal edits. Ranking receives only its blinded pair and evidence/claims. The host must supply a genuinely read-only worker; the script itself never spawns a model or executes returned text. Correct the role authority and violation wording.
@@ -407,5 +407,6 @@ Abhishek selected agent apps first, deferred the Paperclip-specific connection, 
 | step | state | learned |
 |---|---|---|
 | S-32 | locally verified 2026-09-10; not pushed or merged | 247 tests and four skill validators pass. The relocated bundle runs from a foreign directory with spaces. Four targeted tests failed when absolute helper resolution, missing-resource detection, symlink rejection, and destination exclusivity were disabled; all 15 harness tests passed after exact restoration. The module required by retrieval is shipped, but retained library data and promotion dispatch are excluded. Wrapper format is valid; this active host session did not discover newly added skills, so automatic discovery remains unverified. |
+| S-35 | locally verified 2026-09-10; not pushed or merged | All 47 goal/budget tests pass. Eight new regression tests failed on the old code; four targeted tests failed again with finite-value/cost validation disabled in memory, then all 47 passed with the real code. This covers CLI input, direct append, legacy bad records, non-finite revisions, and overflowed totals. No cap was changed and null remains explicitly unmetered. |
 | S-33 | pending | Read-only result exchange must remove the need for ad-hoc worker writes. |
 | S-34 | pending | Structured research output must not imply build authorization or task success. |
