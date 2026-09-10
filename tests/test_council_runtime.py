@@ -266,6 +266,17 @@ class CouncilRuntimeTests(unittest.TestCase):
             council.accept(self.run, packet["request_id"], self.generation())
         self.assertFalse((self.run / "hypotheses.json").exists())
 
+    def test_generation_reply_is_stale_after_supervisor_rating_update(self):
+        self.generate()
+        packet = council.prepare(self.run, "generation")
+        doc = rank.load(self.run)
+        doc["hypotheses"][0]["elo"] += 16
+        rank.save(self.run, doc)
+        before = (self.run / "hypotheses.json").read_bytes()
+        with self.assertRaisesRegex(ValueError, "stale"):
+            council.accept(self.run, packet["request_id"], self.generation())
+        self.assertEqual((self.run / "hypotheses.json").read_bytes(), before)
+
     def test_worker_changes_are_refused_and_never_deleted(self):
         packet = council.prepare(self.run, "generation")
         unexpected = self.run / "unexpected.txt"
