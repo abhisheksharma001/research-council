@@ -26,8 +26,10 @@ library; a script with a hard gate does.
 ## Built for frontier models
 
 The harness exists to squeeze the most out of an AGI-class model, not to babysit a weak one.
-A strong model gets more room: more competing explanations, deeper evidence chains, and the
-harder problems that a coding agent would otherwise skip past. Every guard is a script, so the
+It assumes a model that can search the web, read and run code, fetch papers and spawn its own
+subagents; the harness adds structure and records, not capability. A strong model gets more
+room: more competing explanations, deeper evidence chains, and the harder problems that a
+coding agent would otherwise skip past. Every guard is a script, so the
 model spends its capability on the research and none of it on pretending to be careful.
 
 Works best with the most capable model available in Claude Code; developed and self-run on
