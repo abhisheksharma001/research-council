@@ -13,7 +13,7 @@ run and the bug log. A new model with no memory has no procedure to follow, so i
 guesses at improvements or rewrites what already works.
 
 ## Instead
-Any model runs `/self-improve` in this checkout. The skill points research-council at its own
+Any AGI-class model runs `/self-improve` in this checkout (`## Who runs this` in `docs/spec-v1.md`). The skill points research-council at its own
 repo as the problem, with a fixed goal shape and the four budget numbers asked from the user.
 The run ends with FINDINGS.md and HANDOFF.md in an ignored run folder, a de-identified run
 note in `docs/runs/`, and proposed steps appended to the register in the S-n format. A human

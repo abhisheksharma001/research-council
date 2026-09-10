@@ -17,6 +17,9 @@ evidence may come from, and how the run ends. Read that file first, then come ba
 Think of it as the same n8n workflow with the trigger pinned: the input is always "where is
 research-council weakest", and the last node writes register rows instead of a client report.
 
+The run is written for whatever AGI-class model is current (`## Who runs this` in
+`docs/spec-v1.md`): a newer model should find more, not follow less.
+
 ## Inputs (repo files only)
 - `docs/spec-v1.md`: the register, its Status table, and the steps still open.
 - `docs/bugs.md`: every bug found so far and which step fixed it.

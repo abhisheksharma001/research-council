@@ -6,6 +6,15 @@ A user with a hard problem ("webhook sometimes double-books", "which STT provide
 ## Instead
 User runs `/research-council <problem>` in Claude Code. If the problem is small, it says so and stops. Otherwise it: freezes a goal with competing explanations and a user-set budget, retrieves prior validated skills, runs a bounded investigation with separate roles, records every claim against fetched evidence, follows the fire protocol when something unexpected shows up, writes `AGI_Research/runs/<goal_id>/FINDINGS.md` in plain English plus `HANDOFF.md` a coding agent can build from, and offers a skill to the library where a controller runs the full regression suite before accepting it.
 
+## Who runs this
+An AGI-class model: one that can search the web, read and run code, fetch pages and papers,
+spawn its own subagents, and hold a long investigation in its head. The harness adds no
+capability; it puts structure and records around capability the model already has: a frozen
+goal, a budget, evidence with locators, blinded ranking, a report copied from records. Every
+guard is a script, so the model spends none of its ability pretending to be careful and all of
+it on the problem. The evidence types (`web | file | command | user | paper`) name what such a
+model can already reach. Weaker models run the same loop and find less.
+
 ## Acceptance
 WHEN a user gives one real problem with at least two credible explanations THEN the plugin SHALL produce FINDINGS.md where every claim links to an evidence record with a locator, HANDOFF.md with an EARS acceptance sentence, a journal showing spend against the user-set budget, and zero library changes unless `scripts/promote.py` reports every task contract passed.
 
@@ -293,6 +302,16 @@ Target-project output: `AGI_Research/runs/<goal_id>/{goal.json,journal.jsonl,evi
 **Acceptance:** WHEN the top-rated hypothesis has status `stopped` THEN HANDOFF.md SHALL read `Chosen:` with the next open one and never name the stopped id on the Chosen line.
 **Verify:** `python3 -m unittest tests.test_report -v` → pass; let Chosen skip only `refuted` → exactly one test fails.
 **Must not:** change ratings or the Disputed logic.
+
+### S-30 — Every entry point says who runs it: an AGI-class model
+**PR:** one.
+**Depends on:** S-28.
+**Files:** `docs/spec-v1.md`, `README.md`, `skills/research-council/SKILL.md`, `skills/self-improve/SKILL.md`, `docs/spec-self-improve.md`, `agents/*.md`, `tests/test_who_runs_this.py`.
+**Today:** Only README (S-28) says the harness is built for an AGI-class model. The spec's Today/Instead, both SKILL.md preambles and the four role files never say it, so a model loading the skill reads itself as a procedure-follower, not as the capable agent the harness is built around.
+**Change:** One idea, one term (`AGI-class model`), at every entry point. Spec gains `## Who runs this` after Instead: the model can search the web, read and run code, fetch papers, spawn roles; the harness adds structure and records, not capability; the evidence types name what such a model already reaches. research-council SKILL.md preamble says the same in three lines; each role file gets one line; self-improve SKILL.md and spec point at the spec block; the README section gains the capability sentence. No behaviour change: no tool added to any role.
+**Acceptance:** WHEN `docs/spec-v1.md` is read THEN it SHALL contain a section headed `## Who runs this`, and WHEN any of `skills/*/SKILL.md` or `agents/*.md` is read THEN it SHALL contain the phrase `AGI-class model`, and no `tools:` line SHALL change.
+**Verify:** `grep -c '^## Who runs this' docs/spec-v1.md` → 1; `grep -L 'AGI-class model' agents/*.md skills/*/SKILL.md` → empty; `python3 -m unittest tests.test_who_runs_this -v` → pass.
+**Must not:** change any `tools:` line; touch scripts/; rename the product (O-19); name a model Claude Code cannot run.
 
 ## Status
 | step | state | learned |
