@@ -31,7 +31,7 @@ You never edit FINDINGS.md or HANDOFF.md by hand.
 | Section | Comes from |
 |---|---|
 | Goal | `desired_outcome` and `scope` |
-| Chosen approach | highest-rated non-refuted hypothesis, the highest-rated one it beat in `comparisons.jsonl` (or a fixed line when it beat none), and the `rank.py table` |
+| Chosen approach | highest-rated hypothesis with status `open` (stopped and refuted rows stay in the table), the highest-rated one it beat in `comparisons.jsonl` (or a fixed line when it beat none), and the `rank.py table` |
 | Acceptance | one `WHEN ... THEN ... SHALL` line per success criterion, built from its four fields |
 | Files likely touched | `source_uri` of every evidence record with `source_type: file` |
 | Must not | `prohibited_actions` verbatim |
