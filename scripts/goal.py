@@ -24,6 +24,7 @@ Exit 0 ok, 1 invalid input or tampered goal.
 import argparse
 import hashlib
 import json
+import math
 import sys
 import uuid
 from datetime import datetime, timezone
@@ -43,7 +44,10 @@ SCRIPT_FIELDS = ("goal_id", "revision", "created_at", "revised_at", "revision_re
 
 
 def _is_number(v):
-    return isinstance(v, (int, float)) and not isinstance(v, bool)
+    try:
+        return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+    except OverflowError:
+        return False
 
 
 def _nonempty_str(v):

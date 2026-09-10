@@ -87,6 +87,24 @@ class GoalTests(unittest.TestCase):
         b["budget"]["usd_estimate_cap"] = -1
         self.assertIn("invalid field: budget.usd_estimate_cap (must be a number 0 or above)", goal.validate(b))
 
+    def test_budget_caps_must_be_finite_and_representable(self):
+        for key in goal.BUDGET_NUMBERS:
+            for value in (float("nan"), float("inf"), float("-inf"), 10 ** 1000):
+                b = body()
+                b["budget"][key] = value
+                with self.subTest(key=key, value=str(value)[:20]):
+                    self.assertTrue(any(f"budget.{key}" in error for error in goal.validate(b)))
+
+    def test_revision_cannot_replace_cap_with_nan(self):
+        run = goal.new(self.root, body())
+        before = (run / "goal.json").read_bytes()
+        b = body()
+        b["budget"]["max_actions"] = float("nan")
+        with self.assertRaises(ValueError):
+            goal.revise(run, b, "invalid fixture revision")
+        self.assertEqual(before, (run / "goal.json").read_bytes())
+        self.assertFalse((run / "goal.history.jsonl").exists())
+
     def test_unknown_field_rejected(self):
         b = body()
         b["priority"] = "high"

@@ -392,6 +392,16 @@ Abhishek selected agent apps first, deferred the Paperclip-specific connection, 
 **Verify:** `python3 -m unittest tests.test_report -v`; JSON parsing and Markdown compatibility tests; tampered goal and invalid record tests; full suite passes.
 **Must not:** infer that success criteria passed; mark a task solved from Elo; publish to Paperclip; run a paid model evaluation; change existing library or budget rules.
 
+### S-35 — Invalid numbers cannot disable the budget meter
+**PR:** one.
+**Depends on:** S-32; moved before S-33 after independent review found bug 14.
+**Files:** `scripts/goal.py`; `scripts/journal.py`; `scripts/budget.py`; `tests/test_goal.py`; `tests/test_budget.py`; `skills/research-council/references/budget.md`.
+**Today:** NaN costs pass the negative-number test and make every dollar-cap comparison false. Non-finite goal caps pass validation; a NaN revision is not greater than the old cap, so the no-raise comparison alone does not refuse it.
+**Change:** Require finite, representable numeric caps and finite nonnegative costs; null alone means unmetered. Validate costs in the CLI, direct append API, and persisted journal reader so old invalid entries cannot bypass the meter. Validate loaded cap values and reject overflowed totals. Keep the existing floors and exit meanings for ordinary cap exhaustion; invalid data exits 1 without writing or defaulting anything.
+**Acceptance:** WHEN a cap, revision, or journal cost is NaN, infinity, invalid, negative where forbidden, or missing THEN the controller SHALL refuse it, and a persisted bad cost SHALL never produce an apparently valid spend line.
+**Verify:** `python3 -m unittest tests.test_goal tests.test_budget -v`; negative CLI/API/read-time tests must fail before the guards and pass afterward; full suite passes.
+**Must not:** raise or replace a user cap; reinterpret invalid cost as zero/null; introduce paid calls, dependencies, or changes to promotion.
+
 ## Upgrade status
 
 | step | state | learned |
