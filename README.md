@@ -48,7 +48,7 @@ curiosity protocol when something unexpected shows up, and writes two files into
 Validated procedures go into a versioned skill library only after a controller runs every retained
 task contract. The model never promotes.
 
-Status: all 20 v1 steps merged, plus S-24..S-30; self-improve loop (`skills/self-improve/`) S-21..S-23 merged, first self-run 2026-09-09 (`docs/runs/2026-09-09-self-run.md`); first real run 2026-09-09 (`docs/runs/2026-09-09-first-run.md`). See `docs/spec-v1.md`.
+Status: all 20 v1 steps merged, plus S-24..S-31; self-improve loop (`skills/self-improve/`) S-21..S-23 merged, first self-run 2026-09-09 (`docs/runs/2026-09-09-self-run.md`); first real run 2026-09-09 (`docs/runs/2026-09-09-first-run.md`). See `docs/spec-v1.md`.
 
 ```
 python3 scripts/validate_skill.py skills/research-council   # OK
