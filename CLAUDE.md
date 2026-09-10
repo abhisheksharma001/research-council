@@ -1,8 +1,9 @@
 # research-council — project conventions
 
-A Claude Code plugin (portable SKILL.md) that runs a bounded research investigation on a
-problem a user hands it, writes plain-English findings to `AGI_Research/runs/<goal_id>/`,
-and hands a build brief to a coding agent. Persistent skill library with a hard promotion gate.
+A portable Agent Skills research workflow with Claude Code and Devin entrypoints. It runs a
+bounded investigation of a user's problem, writes plain-English findings to `AGI_Research/runs/<goal_id>/`,
+and provides a practical handoff or structured JSON for the next agent. Persistent skill library
+with a hard promotion gate; host permissions and provider billing are separate controls.
 
 Working standard: `~/.claude/skills/mystandard/SKILL.md`. Spec and step register: `docs/spec-v1.md`.
 Bugs: `docs/bugs.md`. Decisions: `docs/decisions.md`. Research folder: `~/AGI_Research/`.

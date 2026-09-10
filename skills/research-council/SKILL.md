@@ -1,6 +1,6 @@
 ---
 name: research-council
-description: Run a bounded research investigation on a hard problem before anyone writes code. Use when a user asks to research, investigate, or find out why something happens, when there are competing explanations, or when a wrong answer costs money or data. Produces AGI_Research/runs/<goal_id>/FINDINGS.md (plain English, every claim linked to evidence) and HANDOFF.md (a brief a coding agent can build from). Not for small tasks that one command or one test can settle.
+description: Run a bounded investigation of a hard research, decision, or debugging problem before committing to a solution. Use when asked to research, investigate, explain a behaviour, or compare competing explanations, especially when a wrong answer costs money or data. Produces evidence-linked FINDINGS.md, a practical HANDOFF.md, and optional structured JSON for the next agent. Not for small tasks that one command or one test can settle.
 license: MIT
 compatibility: Agent Skills format for tool-capable hosts including Claude Code and Devin. Requires Python 3.11+, local file access and host-enforced worker permissions. Use the portable export for other skill loaders. Model and live-host availability must be checked separately.
 metadata:
@@ -130,7 +130,12 @@ Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrie
 8. **Report.** Read `references/report.md`. When Meta-review says stop or `budget.py check`
    exits 2, run `scripts/report.py --run <run>`. It writes FINDINGS.md and HANDOFF.md from the
    records alone; every claim without evidence lands under Unverified. Never edit either file
-   by hand: fix the record and rerun. Show the user both paths.
+   by hand: fix the record and rerun. Show the user both paths. For an agent/task consumer,
+   `scripts/report.py --run <run> --json` prints a structured handoff without changing files.
+   It preserves provenance and separates claim statuses; missing or malformed review records
+   keep backed claims unreviewed. It grants no action permissions and does not evaluate success.
+   Recorded review does not attest coverage or freshness. Do not publish private records or
+   update a Paperclip task without the consumer's existing authorization.
 9. **Library.** Read `references/library.md` only for an explicitly authorized library update
    in a full checkout. A portable export has no retained library or promotion authority;
    finish with its reports. Self-improvement runs remain evidence-only. For an authorized

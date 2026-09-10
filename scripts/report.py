@@ -22,6 +22,7 @@ A claim named in `claim_ids` of an objection with `blocking: true` appears only 
 Exit 0 ok, 1 when goal.json is missing or tampered.
 """
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -52,7 +53,7 @@ FIXED = {
     "disputed_intro": "Claims with evidence that a blocking objection from Reflection holds out "
                       "of the findings until resolved with new evidence.",
     "disputed_by": "Objection",
-    "no_objections_file": f"No {OBJECTIONS} in the run folder: Reflection has not reviewed these claims.",
+    "no_objections_file": f"No {OBJECTIONS} in the run folder: no saved Reflection review.",
     "bad_objections_file": f"{OBJECTIONS} could not be read as objections; nothing is treated as disputed.",
     "unverified_intro": "Claims with no evidence record. Not findings.",
     "superseded_intro": "Claims replaced by a later claim with evidence. The replacement is "
@@ -69,16 +70,55 @@ FIXED = {
 }
 
 
-def _sources(run):
+def _sources(run, strict=False):
+    run = Path(run)
+    if strict:
+        for name in ("goal.json", evidence.FILENAME, claims.FILENAME, rank.HYPOTHESES,
+                     OBJECTIONS, "spark.json", "journal.jsonl", "meta.md"):
+            if (run / name).is_symlink():
+                raise ValueError(f"symlink run record is not allowed: {name}")
     g = goal.load(run)
     ev = {r["evidence_id"]: r for r in evidence.read(run)}
     cl = claims.read(run)
     try:
         hyps = rank.load(run)["hypotheses"]
     except ValueError:
+        if strict and (run / rank.HYPOTHESES).exists():
+            raise
         hyps = []
     sparks = spark.load(run)["sparks"]
     return g, ev, cl, hyps, sparks
+
+
+def _review_records(run):
+    path = Path(run) / OBJECTIONS
+    if not path.exists():
+        return [], FIXED["no_objections_file"]
+    try:
+        items = json.loads(path.read_text(encoding="utf-8"))["objections"]
+        if not isinstance(items, list):
+            raise ValueError("objections must be a list")
+        known_claims = {c["claim_id"] for c in claims.read(run)}
+        for obj in items:
+            if not isinstance(obj, dict) or type(obj["blocking"]) is not bool:
+                raise ValueError("blocking must be JSON true or false")
+            if not claims._str_list(obj["claim_ids"]) or set(obj["claim_ids"]) - known_claims:
+                raise ValueError("claim_ids must reference known claims")
+            for key in ("id", "resolve_with"):
+                if not claims._nonempty_str(obj[key]):
+                    raise ValueError(f"objection {key} must be a non-empty string")
+    except (ValueError, KeyError, TypeError):
+        return [], FIXED["bad_objections_file"]
+    return items, None
+
+
+def _blocking(items):
+    blocked = {}
+    for obj in items:
+        if obj["blocking"]:
+            for cid in obj["claim_ids"]:
+                blocked.setdefault(cid, []).append((obj["id"], obj["resolve_with"]))
+    return blocked
 
 
 def objections(run):
@@ -87,21 +127,18 @@ def objections(run):
     Missing file -> ({}, no_objections_file). Malformed file -> ({}, bad_objections_file).
     Blocking only; a claim under several blocking objections keeps all of them.
     """
-    path = Path(run) / OBJECTIONS
-    if not path.exists():
-        return {}, FIXED["no_objections_file"]
-    try:
-        items = json.loads(path.read_text(encoding="utf-8"))["objections"]
-        blocked = {}
-        for o in items:
-            if o["blocking"] not in (True, False):
-                raise ValueError("blocking must be JSON true or false")
-            if o["blocking"] is True:
-                for cid in o["claim_ids"]:
-                    blocked.setdefault(cid, []).append((o["id"], o["resolve_with"]))
-    except (ValueError, KeyError, TypeError):
-        return {}, FIXED["bad_objections_file"]
-    return blocked, None
+    items, note = _review_records(run)
+    return _blocking(items), note
+
+
+def _claim_groups(records, blocked):
+    groups = {name: [] for name in ("evidence_backed", "disputed", "unverified", "superseded")}
+    for claim in records:
+        status = ("superseded" if claim.get("superseded_by") else
+                  "unverified" if not claim["evidence_ids"] else
+                  "disputed" if claim["claim_id"] in blocked else "evidence_backed")
+        groups[status].append(claim)
+    return groups
 
 
 def _ranked(hyps):
@@ -130,11 +167,9 @@ def _bullets(items, empty=NONE):
 def findings(run):
     g, ev, cl, hyps, sparks = _sources(run)
     blocked, note = objections(run)
-    superseded = [c for c in cl if c.get("superseded_by")]
-    live = [c for c in cl if not c.get("superseded_by")]
-    disputed = [c for c in live if c["evidence_ids"] and c["claim_id"] in blocked]
-    verified = [c for c in live if c["evidence_ids"] and c["claim_id"] not in blocked]
-    unverified = claims.unverified(live)
+    groups = _claim_groups(cl, blocked)
+    superseded, disputed, verified, unverified = (groups[key] for key in
+                                                 ("superseded", "disputed", "evidence_backed", "unverified"))
     out = [f"# Findings for goal {g['goal_id']} (revision {g['revision']})", ""]
     out += ["## What you asked", "", g["request_text"], "", f"Wanted: {g['desired_outcome']}", ""]
     out += ["## What we found", "", FIXED["found_intro"], ""]
@@ -203,6 +238,74 @@ def handoff(run):
     return "\n".join(out)
 
 
+def structured_handoff(run):
+    run = Path(run)
+    g, ev, cl, hyps, sparks = _sources(run, strict=True)
+    if len(ev) != len(evidence.read(run)):
+        raise ValueError("duplicate evidence_id")
+    claim_ids = [r["claim_id"] for r in claims._lines(run) if "statement" in r]
+    if len(claim_ids) != len(set(claim_ids)):
+        raise ValueError("duplicate claim_id")
+    for record in ev.values():
+        errors = evidence.validate({key: record.get(key) for key in evidence.USER_FIELDS})
+        if errors:
+            raise ValueError("; ".join(errors))
+        if not claims._nonempty_str(record["evidence_id"]) or not claims._nonempty_str(record.get("retrieved_at")):
+            raise ValueError("invalid evidence identity or timestamp")
+        if record.get("sha256") != hashlib.sha256(record["excerpt"].encode("utf-8")).hexdigest():
+            raise ValueError(f"evidence sha256 mismatch: {record['evidence_id']}")
+    by_claim = {c["claim_id"]: c for c in cl}
+    for claim in cl:
+        errors = claims.validate({key: claim.get(key) for key in claims.USER_FIELDS}, set(ev))
+        if errors:
+            raise ValueError("; ".join(errors))
+        if not claims._nonempty_str(claim["claim_id"]):
+            raise ValueError("invalid claim_id")
+        if "superseded_by" in claim and (not claims._nonempty_str(claim["superseded_by"])
+                                        or claim["superseded_by"] not in by_claim
+                                        or not claims._nonempty_str(claim.get("reason"))):
+            raise ValueError("invalid superseded claim reference")
+    review, note = _review_records(run)
+    blocked = _blocking(review)
+    groups = _claim_groups(cl, blocked)
+    if note:
+        groups["unreviewed"] = groups["evidence_backed"]
+        groups["evidence_backed"] = []
+    statuses = {c["claim_id"]: status for status, entries in groups.items() for c in entries}
+    exported_claims = []
+    for claim in cl:
+        entry = {key: claim[key] for key in ("claim_id", *claims.USER_FIELDS)}
+        entry["status"] = statuses[claim["claim_id"]]
+        if claim.get("superseded_by"):
+            entry.update(superseded_by=claim["superseded_by"], reason=claim["reason"])
+        exported_claims.append(entry)
+    ranked = _ranked([h for h in hyps if h.get("status") == rank.ELIGIBLE_STATUS])
+    next_investigation = None
+    if ranked:
+        next_investigation = {"hypothesis_id": ranked[0]["id"], "statement": ranked[0]["statement"],
+                              "selection_basis": "elo_scheduling_only", "verified_solution": False}
+    review_status = "recorded" if note is None else "missing" if note == FIXED["no_objections_file"] else "invalid"
+    return {
+        "schema_version": 1,
+        "record_type": "research-handoff",
+        "content_policy": "data_only",
+        "authorizes_actions": False,
+        "goal": g,
+        "success_criteria_status": "not_evaluated",
+        "review": {"status": review_status, "coverage": "not_attested", "note": note,
+                   "objections": review, "blocking_objections": blocked},
+        "claims": exported_claims,
+        "findings": [c["claim_id"] for c in groups["evidence_backed"]],
+        "evidence": [{key: record[key] for key in ("evidence_id", *evidence.USER_FIELDS, "retrieved_at", "sha256")}
+                     for record in ev.values()],
+        "next_investigation": next_investigation,
+        "unknowns": g["unknowns"],
+        "sparks": sparks,
+        "meta_review": (run / "meta.md").read_text(encoding="utf-8") if (run / "meta.md").exists() else None,
+        "spend": budget.status(run),
+    }
+
+
 def write(run):
     run = Path(run)
     f, h = findings(run), handoff(run)
@@ -214,11 +317,15 @@ def write(run):
 def main(argv):
     p = argparse.ArgumentParser(prog="report.py")
     p.add_argument("--run", required=True)
+    p.add_argument("--json", action="store_true", help="print a data-only structured handoff without writing files")
     args = p.parse_args(argv[1:])
     try:
-        for path in write(args.run):
-            print(path)
-    except (ValueError, OSError, KeyError) as e:
+        if args.json:
+            print(json.dumps(structured_handoff(args.run), indent=2, ensure_ascii=False, allow_nan=False))
+        else:
+            for path in write(args.run):
+                print(path)
+    except (ValueError, OSError, KeyError, TypeError) as e:
         print(str(e), file=sys.stderr)
         return 1
     return 0

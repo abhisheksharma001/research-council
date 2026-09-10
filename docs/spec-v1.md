@@ -4,16 +4,17 @@
 A user with a hard problem ("webhook sometimes double-books", "which STT provider", "why does recall drop after batch 24") asks a coding agent. The agent guesses one explanation and starts coding. Nothing is recorded, nothing is reusable, alternatives are never tested.
 
 ## Instead
-User runs `/research-council <problem>` in Claude Code. If the problem is small, it says so and stops. Otherwise it: freezes a goal with competing explanations and a user-set budget, retrieves prior validated skills, runs a bounded investigation with separate roles, records every claim against fetched evidence, follows the fire protocol when something unexpected shows up, writes `AGI_Research/runs/<goal_id>/FINDINGS.md` in plain English plus `HANDOFF.md` a coding agent can build from, and offers a skill to the library where a controller runs the full regression suite before accepting it.
+User loads research-council in a tool-capable agent host (`/research-council <problem>` in Claude Code, a local loader or portable export elsewhere). Small problems are refused with a reason. Otherwise it freezes competing explanations, user-set criteria and limits, retrieves prior validated skills when a library is available, investigates with separate roles, records evidence and claims, and produces `AGI_Research/runs/<goal_id>/FINDINGS.md` plus `HANDOFF.md`. An opt-in JSON handoff serves another agent without granting authority or claiming a solved problem. Library promotion remains a separate authorized controller operation, never part of an exported skill or self-run.
 
 ## Who runs this
-An AGI-class model: one that can search the web, read and run code, fetch pages and papers,
-spawn its own subagents, and hold a long investigation in its head. The harness adds no
-capability; it puts structure and records around capability the model already has: a frozen
-goal, a budget, evidence with locators, blinded ranking, a report copied from records. Every
-guard is a script, so the model spends none of its ability pretending to be careful and all of
-it on the problem. The evidence types (`web | file | command | user | paper`) name what such a
-model can already reach. Weaker models run the same loop and find less.
+An AGI-class model in a host that actually supplies the required tools. Python and local
+resources are checked separately from model availability, source access, enforced worker
+permissions, provider billing, and a sandbox for untrusted code. The workflow contributes
+frozen goals, evidence with locators, bounded role exchanges, scheduling and record-only
+reports. Its scripts validate records and lifecycle transitions; they are not an OS sandbox
+or a provider billing limit. Evidence types (`web | file | command | user | paper`) describe
+possible sources, not capabilities automatically granted by a model name. Research quality
+and live-host compatibility require their own evaluations; unit tests do not establish them.
 
 ## Acceptance
 WHEN a user gives one real problem with at least two credible explanations THEN the plugin SHALL produce FINDINGS.md where every claim links to an evidence record with a locator, HANDOFF.md with an EARS acceptance sentence, a journal showing spend against the user-set budget, and zero library changes unless `scripts/promote.py` reports every task contract passed.
@@ -385,9 +386,9 @@ Abhishek selected agent apps first, deferred the Paperclip-specific connection, 
 ### S-34 — Expose a traceable handoff as structured data
 **PR:** one.
 **Depends on:** S-33.
-**Files:** `scripts/report.py`; `tests/test_report.py`; `skills/research-council/references/report.md`; `skills/research-council/SKILL.md`; `README.md`.
+**Files:** `scripts/report.py`; `tests/test_report.py`; `skills/research-council/references/report.md`; `skills/research-council/SKILL.md`; `README.md`; `CLAUDE.md`; `.claude-plugin/plugin.json` (0.2.0 candidate metadata).
 **Today:** E-7/E-10, C-4: the report produces Markdown and already says Elo is scheduling, not verification. There is no structured handoff for a task consumer. Paperclip setup is undecided.
-**Change:** Add an opt-in JSON handoff from the same records, preserving goal identity/revision/hash, evidence locators, claim status, objections, unknowns, limits, and the next hypothesis to investigate. State that the artifact is research data, not instructions or build authorization. Treat missing or malformed review state honestly. A consumer can ingest this without granting network or task-write authority to this repo.
+**Change:** Add an opt-in JSON handoff from the same records, preserving goal identity/revision/hash, evidence locators, claim status, objections, unknowns, limits, and the next hypothesis to investigate. State that the artifact is research data, not instructions or build authorization. Validate exact review booleans/list shape, evidence excerpt hashes, unique record ids and claim references. Missing or malformed review records keep backed claims out of the JSON findings list; recorded review does not attest coverage or freshness. Preserve default Markdown behavior apart from correctly identifying malformed reviews. A consumer can ingest the JSON without granting network or task-write authority to this repo.
 **Acceptance:** WHEN the JSON handoff is requested THEN every claim SHALL have an explicit evidence/review status, and unverified, disputed, or superseded claims SHALL not appear among evidence-backed findings; the chosen hypothesis SHALL be labelled scheduling only.
 **Verify:** `python3 -m unittest tests.test_report -v`; JSON parsing and Markdown compatibility tests; tampered goal and invalid record tests; full suite passes.
 **Must not:** infer that success criteria passed; mark a task solved from Elo; publish to Paperclip; run a paid model evaluation; change existing library or budget rules.
