@@ -33,9 +33,14 @@ def status(run, now=None):
     """Return {spent, caps, unmetered, exceeded}. Raises ValueError."""
     g = goal.load(run)
     budget = g.get("budget", {})
+    if not isinstance(budget, dict):
+        raise ValueError("goal.json budget must be an object")
     for k in CAPS:
         if k not in budget:
             raise ValueError(f"goal.json budget missing: {k} (no default exists)")
+    errors = goal.validate({key: g.get(key) for key in goal.USER_FIELDS})
+    if errors:
+        raise ValueError("; ".join(errors))
     caps = {k: budget[k] for k in CAPS}
     now = now or datetime.now(timezone.utc)
     created = datetime.fromisoformat(g["created_at"])
@@ -46,6 +51,8 @@ def status(run, now=None):
         "max_subagents": sum(1 for e in entries if e["kind"] == "subagent"),
         "usd_estimate_cap": sum(e["cost_usd"] or 0 for e in entries),
     }
+    if not goal._is_number(spent["usd_estimate_cap"]):
+        raise ValueError("non-finite total cost in journal")
     unmetered = sum(1 for e in entries if e["cost_usd"] is None)
     exceeded = [k for k in CAPS if spent[k] > caps[k]]
     return {"spent": spent, "caps": caps, "unmetered": unmetered, "exceeded": exceeded}

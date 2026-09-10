@@ -374,7 +374,7 @@ Abhishek selected agent apps first, deferred the Paperclip-specific connection, 
 
 ### S-33 — Give read-only council roles a validated result channel
 **PR:** one.
-**Depends on:** S-32.
+**Depends on:** S-32, S-35 (invalid ledger data must not admit a worker).
 **Files:** scripts/council.py; tests/test_council_runtime.py; `scripts/harness.py`; `skills/research-council/SKILL.md`; `skills/research-council/references/council.md`; `agents/generation.md`; `agents/reflection.md`; `agents/ranking.md`; `agents/meta-review.md`; `tests/test_council.py`.
 **Today:** E-4/E-5/E-6/E-9, C-2/C-3 and bug 13: fallback roles have advisory permissions and require ad-hoc supervisor writes for two results; after-spawn hashes do not enforce a sandbox.
 **Change:** Add prepare/accept/cancel commands. Prepare reserves one worker launch under the user budget, returns only the role's input and return-only instructions, and binds a request id to the frozen goal and input snapshot. Accept checks the request, unchanged input, schema, identifiers, and fence before writing only the role's named output; rejects replay, stale replies, unknown claims, or rating/goal edits. Ranking receives only its blinded pair and evidence/claims. The host must supply a genuinely read-only worker; the script itself never spawns a model or executes returned text. Correct the role authority and violation wording.
@@ -392,10 +392,21 @@ Abhishek selected agent apps first, deferred the Paperclip-specific connection, 
 **Verify:** `python3 -m unittest tests.test_report -v`; JSON parsing and Markdown compatibility tests; tampered goal and invalid record tests; full suite passes.
 **Must not:** infer that success criteria passed; mark a task solved from Elo; publish to Paperclip; run a paid model evaluation; change existing library or budget rules.
 
+### S-35 — Invalid numbers cannot disable the budget meter
+**PR:** one.
+**Depends on:** S-32; moved before S-33 after independent review found bug 14.
+**Files:** `scripts/goal.py`; `scripts/journal.py`; `scripts/budget.py`; `tests/test_goal.py`; `tests/test_budget.py`; `skills/research-council/references/budget.md`.
+**Today:** NaN costs pass the negative-number test and make every dollar-cap comparison false. Non-finite goal caps pass validation; a NaN revision is not greater than the old cap, so the no-raise comparison alone does not refuse it.
+**Change:** Require finite, representable numeric caps and finite nonnegative costs; null alone means unmetered. Validate costs in the CLI, direct append API, and persisted journal reader so old invalid entries cannot bypass the meter. Validate loaded cap values and reject overflowed totals. Keep the existing floors and exit meanings for ordinary cap exhaustion; invalid data exits 1 without writing or defaulting anything.
+**Acceptance:** WHEN a cap, revision, or journal cost is NaN, infinity, invalid, negative where forbidden, or missing THEN the controller SHALL refuse it, and a persisted bad cost SHALL never produce an apparently valid spend line.
+**Verify:** `python3 -m unittest tests.test_goal tests.test_budget -v`; negative CLI/API/read-time tests must fail before the guards and pass afterward; full suite passes.
+**Must not:** raise or replace a user cap; reinterpret invalid cost as zero/null; introduce paid calls, dependencies, or changes to promotion.
+
 ## Upgrade status
 
 | step | state | learned |
 |---|---|---|
 | S-32 | locally verified 2026-09-10; not pushed or merged | 247 tests and four skill validators pass. The relocated bundle runs from a foreign directory with spaces. Four targeted tests failed when absolute helper resolution, missing-resource detection, symlink rejection, and destination exclusivity were disabled; all 15 harness tests passed after exact restoration. The module required by retrieval is shipped, but retained library data and promotion dispatch are excluded. Wrapper format is valid; this active host session did not discover newly added skills, so automatic discovery remains unverified. |
+| S-35 | locally verified 2026-09-10; not pushed or merged | All 47 goal/budget tests pass. Eight new regression tests failed on the old code; four targeted tests failed again with finite-value/cost validation disabled in memory, then all 47 passed with the real code. This covers CLI input, direct append, legacy bad records, non-finite revisions, and overflowed totals. No cap was changed and null remains explicitly unmetered. |
 | S-33 | pending | Read-only result exchange must remove the need for ad-hoc worker writes. |
 | S-34 | pending | Structured research output must not imply build authorization or task success. |

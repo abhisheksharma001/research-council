@@ -62,6 +62,48 @@ class BudgetTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid cost_usd"):
             journal.parse_cost("-1")
 
+    def test_cost_parser_rejects_nonfinite_values(self):
+        for value in ("nan", "inf", "-inf", "1e999"):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "cost_usd"):
+                journal.parse_cost(value)
+
+    def test_journal_api_rejects_invalid_cost_without_writing(self):
+        for value in (float("nan"), float("inf"), float("-inf"), -1, True, "1", {}, 10 ** 1000):
+            with self.subTest(value=str(value)[:20]), self.assertRaisesRegex(ValueError, "cost_usd"):
+                journal.add(self.run, "exec", value, "invalid fixture cost")
+        self.assertFalse((self.run / "journal.jsonl").exists())
+
+    def test_nonfinite_cost_cli_is_refused(self):
+        result = subprocess.run([sys.executable, str(JOURNAL_SCRIPT), "add", "--run", str(self.run),
+                                 "--kind", "exec", "--cost_usd", "nan", "--detail", "invalid fixture cost"],
+                                capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("cost_usd", result.stderr)
+        self.assertFalse((self.run / "journal.jsonl").exists())
+
+    def test_budget_refuses_legacy_invalid_or_missing_cost(self):
+        for value in (float("nan"), float("inf"), -1, True, "1", {}):
+            entry = {"ts": goal._now(), "kind": "exec", "detail": "legacy fixture", "cost_usd": value}
+            (self.run / "journal.jsonl").write_text(json.dumps(entry) + "\n")
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "cost_usd"):
+                budget.status(self.run)
+        (self.run / "journal.jsonl").write_text(json.dumps({"kind": "exec", "detail": "missing cost"}) + "\n")
+        with self.assertRaisesRegex(ValueError, "cost_usd"):
+            budget.status(self.run)
+
+    def test_loaded_nonfinite_cap_is_refused_even_with_consistent_hash(self):
+        g = goal.load(self.run)
+        g["budget"]["usd_estimate_cap"] = float("nan")
+        g["frozen_sha256"] = goal.freeze(g)
+        (self.run / "goal.json").write_text(json.dumps(g))
+        with self.assertRaisesRegex(ValueError, "budget"):
+            budget.status(self.run)
+
+    def test_cost_total_overflow_is_refused(self):
+        self.log("exec", 1e308, n=2)
+        with self.assertRaisesRegex(ValueError, "cost"):
+            budget.status(self.run)
+
     # budget.py
     def test_status_line_format(self):
         self.log("fetch", 0.25, n=3)
