@@ -391,3 +391,11 @@ Abhishek selected agent apps first, deferred the Paperclip-specific connection, 
 **Acceptance:** WHEN the JSON handoff is requested THEN every claim SHALL have an explicit evidence/review status, and unverified, disputed, or superseded claims SHALL not appear among evidence-backed findings; the chosen hypothesis SHALL be labelled scheduling only.
 **Verify:** `python3 -m unittest tests.test_report -v`; JSON parsing and Markdown compatibility tests; tampered goal and invalid record tests; full suite passes.
 **Must not:** infer that success criteria passed; mark a task solved from Elo; publish to Paperclip; run a paid model evaluation; change existing library or budget rules.
+
+## Upgrade status
+
+| step | state | learned |
+|---|---|---|
+| S-32 | locally verified 2026-09-10; not pushed or merged | 247 tests and four skill validators pass. The relocated bundle runs from a foreign directory with spaces. Four targeted tests failed when absolute helper resolution, missing-resource detection, symlink rejection, and destination exclusivity were disabled; all 15 harness tests passed after exact restoration. The module required by retrieval is shipped, but retained library data and promotion dispatch are excluded. Wrapper format is valid; this active host session did not discover newly added skills, so automatic discovery remains unverified. |
+| S-33 | pending | Read-only result exchange must remove the need for ad-hoc worker writes. |
+| S-34 | pending | Structured research output must not imply build authorization or task success. |
