@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import budget  # noqa: E402
 import claims  # noqa: E402
 import evidence  # noqa: E402
+import rank  # noqa: E402
 import report  # noqa: E402
 
 REPORT_SCRIPT = ROOT / "scripts" / "report.py"
@@ -117,6 +118,14 @@ class ReportTests(unittest.TestCase):
         body = sections(report.handoff(self.run))["Chosen approach"]
         self.assertIn("Beat: H1 The upstream", body)
         self.assertNotIn("H3", body.split("```")[0])  # H2 lost to H3; it only appears in the table
+
+    def test_handoff_never_chooses_a_stopped_hypothesis(self):
+        rank.stop(self.run, "H2", "O-1")  # top-rated H2 stopped; H1 is the only open one left
+        body = sections(report.handoff(self.run))["Chosen approach"]
+        self.assertIn("Chosen: H1 The upstream", body)
+        self.assertNotIn("Chosen: H2", body)
+        self.assertIn("Beat: no pair judged against it.", body)  # H1 never won a pair
+        self.assertIn("H2       1208    1 stopped", body)  # stays in the table with its status
 
     def test_files_come_only_from_file_evidence(self):
         evidence.add(self.run, {"source_type": "web", "source_uri": "https://example.test/status", "title": "status page",

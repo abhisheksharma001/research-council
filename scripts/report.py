@@ -179,7 +179,7 @@ def _ears(criterion):
 
 def handoff(run):
     g, ev, cl, hyps, sparks = _sources(run)
-    ranked = _ranked([h for h in hyps if h.get("status") != REFUTED])
+    ranked = _ranked([h for h in hyps if h.get("status") == rank.ELIGIBLE_STATUS])
     out = [f"# Handoff for goal {g['goal_id']} (revision {g['revision']})", ""]
     out += ["## Goal", "", g["desired_outcome"], "", f"Scope: {g['scope']}", ""]
     out += ["## Chosen approach", "", FIXED["elo_gloss"], ""]
