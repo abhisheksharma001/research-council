@@ -105,18 +105,23 @@ Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrie
    exit 1 and nothing is written. Before writing findings run
    `scripts/claims.py list --run <run> --unverified`: each line printed is reported as
    unverified, never as a finding.
-5. **Council.** Read `references/council.md`. Spawn the four roles in `agents/` in the
-   order it gives for the current stage: Generation writes `hypotheses.json`, Reflection
-   returns objections you save as `objections.json`, Ranking returns one blinded pair's
-   winner, Meta-review writes `meta.md` and says continue or stop. Before every spawn run
-   `scripts/budget.py check`; after it, `scripts/journal.py add --kind subagent`. Then list
-   the run folder: a role that touched any file other than its own is a violation, delete
-   the file and log a note. No role gets Bash, the library, or the promote script.
-6. **Ranking.** Read `references/rank.md`. `scripts/rank.py pair --run <run> --seed <n>`
-   prints one blinded pair; give exactly that JSON to a Ranking spawn and pass its reply to
+5. **Council.** Read `references/council.md`. Keep Generation, Reflection, Ranking and
+   Meta-review in its stage order. Prefer `scripts/council.py prepare --run <run> --role <role>`
+   and a host-enforced read-only worker. The packet carries only that role's input; returned
+   JSON goes through `scripts/council.py accept --run <run> --request <id> --from -`.
+   The controller saves hypotheses, objections, comparisons or meta.md after validation.
+   Prepare reserves one subagent launch; do not log that launch twice. Before every actual
+   spawn check the budget. Cancel an unused or stale request before preparing a new attempt.
+   The native alternative and its separate journal/fence commands are in the reference.
+   A violation stops work: preserve the files and ask before any deletion or restoration.
+   A folder hash is a detector, not a sandbox. No role gets Bash, the library, or the promote script.
+6. **Ranking.** Read `references/rank.md`. For return-only mode, prepare Ranking with an
+   explicit `--seed <n>`; accept records its blinded winner exactly once. Do not also create
+   or record that pair manually. For native mode, `scripts/rank.py pair --run <run> --seed <n>`
+   prints one blinded pair; give exactly that JSON to the worker and use
    `scripts/rank.py record --run <run> --pair <id> --winner A|B|draw --judgment "..."`.
-   `rank.py table` shows the order to investigate next; `rank.py cycles` lists judgments
-   that contradict each other. A rating never verifies a claim and never enters FINDINGS.md.
+   `rank.py table` shows the order to investigate next; `rank.py cycles` lists contradictions.
+   A rating never verifies a claim and never enters FINDINGS.md.
 7. **Curiosity.** Read `references/curiosity.md`. Open a spark with `scripts/spark.py new`
    only when an observation contradicts a hypothesis's `predicted_result` or two hypotheses
    tie within 16 Elo points. Walk it through `strategies/fire.md` with `spark.py trial` and
