@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import budget  # noqa: E402
 import goal  # noqa: E402
 import journal  # noqa: E402
+import task  # noqa: E402
 
 BUDGET_SCRIPT = ROOT / "scripts" / "budget.py"
 JOURNAL_SCRIPT = ROOT / "scripts" / "journal.py"
@@ -207,6 +208,63 @@ class BudgetTests(unittest.TestCase):
         r = subprocess.run([sys.executable, str(BUDGET_SCRIPT), "check", "--run",
                             str(self.root / "nowhere")], capture_output=True, text=True)
         self.assertEqual(r.returncode, 1)
+
+
+class TaskBudgetTests(unittest.TestCase):
+    """S-37: budget.py meters a code-writer-council run (task.json) with the same caps and exit codes."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name).resolve()
+        self.run = task.new(self.root, {
+            "request_text": "rename a flag", "test_command": "python3 -m unittest",
+            "allowed_paths": ["scripts/triage.py"], "max_diff_lines": 40,
+            "expected_small": True, "explain": False,
+            "budget": {"minutes": 20, "max_actions": 60, "max_subagents": 3, "usd_estimate_cap": 0,
+                       "set_by": "user"}})
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_status_line_for_a_task_run(self):
+        journal.add(self.run, "exec", None, "tests")
+        created = datetime.fromisoformat(task.load(self.run)["created_at"])
+        st = budget.status(self.run, now=created + timedelta(minutes=3))
+        self.assertEqual(budget.line(st), "spent: 3/20 min, 1/60 actions, 0/3 subagents, ~$0.00/$0 (unmetered: 1)")
+        self.assertEqual(st["exceeded"], [])
+
+    def test_hand_edited_task_is_refused(self):
+        path = self.run / "task.json"
+        t = json.loads(path.read_text())
+        t["budget"]["max_actions"] = 10_000
+        path.write_text(json.dumps(t))
+        r = subprocess.run([sys.executable, str(BUDGET_SCRIPT), "check", "--run", str(self.run)],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("frozen_sha256 mismatch", r.stderr)
+
+    def test_task_missing_cap_has_no_default(self):
+        path = self.run / "task.json"
+        t = json.loads(path.read_text())
+        del t["budget"]["max_subagents"]
+        t["frozen_sha256"] = goal.freeze(t)  # consistent hash, but a cap is gone
+        path.write_text(json.dumps(t))
+        with self.assertRaisesRegex(ValueError, "task.json budget missing: max_subagents"):
+            budget.status(self.run)
+
+    def test_task_caps_exceed_exit_2(self):
+        for _ in range(4):
+            journal.add(self.run, "subagent", None, "reviewer")
+        r = subprocess.run([sys.executable, str(BUDGET_SCRIPT), "check", "--run", str(self.run)],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("exceeded: max_subagents (4/3)", r.stderr)
+
+    def test_task_zero_usd_cap_exceeded_by_first_metered_cost(self):
+        journal.add(self.run, "fetch", None, "unmetered")
+        self.assertEqual(budget.status(self.run)["exceeded"], [])
+        journal.add(self.run, "fetch", 0.01, "metered")
+        self.assertEqual(budget.status(self.run)["exceeded"], ["usd_estimate_cap"])
 
 
 if __name__ == "__main__":
