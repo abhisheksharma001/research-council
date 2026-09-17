@@ -18,6 +18,9 @@ claude --plugin-dir ./research-council
 
 **Claude Code:** run `/research-council <your problem>` after loading the plugin.
 
+**code-writer-council:** the third skill, `skills/code-writer-council/SKILL.md`, runs whenever
+the agent is about to write or change code; a skeleton until the steps in `docs/spec-code-council.md` land.
+
 **Devin:** the two loaders in `.devin/skills/` delegate research-council and self-improve
 to the canonical files under `skills/`. Their format and paths are tested. This active session
 did not discover newly written loaders; use a fresh session or load the canonical skill by
@@ -118,6 +121,7 @@ better research: changes need failures that can be reproduced and meaningful reg
 python3 -m unittest discover -s tests -v
 python3 scripts/validate_skill.py skills/research-council   # OK
 python3 scripts/validate_skill.py skills/self-improve
+python3 scripts/validate_skill.py skills/code-writer-council
 python3 scripts/validate_skill.py .devin/skills/research-council
 python3 scripts/validate_skill.py .devin/skills/self-improve
 ```
