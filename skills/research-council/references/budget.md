@@ -23,7 +23,11 @@ Log every action right after it happens:
 python3 scripts/journal.py add --run AGI_Research/runs/<goal_id> --kind fetch --cost_usd null --detail "GET https://example.org/status"
 python3 scripts/journal.py add --run AGI_Research/runs/<goal_id> --kind subagent --cost_usd 0.12 --detail "reflection on H1"
 ```
-Use `--cost_usd null` when the cost is unknown; never invent a number.
+Use `--cost_usd null` when the cost is unknown; never invent a number. Caps and metered
+costs must be finite, representable numbers, and costs cannot be negative. NaN, infinity,
+booleans, and missing cost fields are invalid, not free work. The CLI, append API, and journal
+reader reject invalid costs; a legacy bad entry or overflowed total stops budget checking
+with exit 1. Correct the record with the user rather than substituting zero or raising a cap.
 
 Run the check **before every subagent spawn and after every ten actions**:
 ```bash
