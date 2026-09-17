@@ -213,3 +213,4 @@ dropped (B, then Thinker) and the reply says which.
 | step | state | learned |
 |---|---|---|
 | S-36 | done 2026-09-17 (PR #42) | The step's file list missed `tests/test_who_runs_this.py`, which hard-counts entry points (agents plus skills); a third skill needs the count bumped, so every later step that adds an agent (S-41, S-42) must bump it too. One guard test per rule sentence, none counting the rules, is what makes "remove one rule, exactly one test fails" true. Suite 301 tests, five validators OK. |
+| S-37 | done 2026-09-17 (PR #43) | The file list missed `scripts/journal.py`: its run-folder gate demanded goal.json, so a code run could not log and budget.py had nothing to count; gate now accepts task.json. `scripts/evidence.py` and `scripts/fence.py` have the same gate; S-39 and S-41 open them. When config.json exists the body must not carry a budget block, so there is one source of caps and a silent override is impossible. Suite 330 tests. |
