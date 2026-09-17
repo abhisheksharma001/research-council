@@ -14,7 +14,7 @@ class WhoRunsThis(unittest.TestCase):
 
     def test_every_entry_point_names_the_model_class(self):
         files = sorted(ROOT.glob("agents/*.md")) + sorted(ROOT.glob("skills/*/SKILL.md"))
-        self.assertEqual(len(files), 6, [f.name for f in files])
+        self.assertEqual(len(files), 7, [f.name for f in files])
         for f in files:
             self.assertIn(PHRASE, f.read_text(), msg=str(f.relative_to(ROOT)))
 
