@@ -7,7 +7,8 @@ Usage:
 
 Every line is {"ts", "kind", "cost_usd", "detail"}. `cost_usd null` means the cost is
 unknown (unmetered); budget.py counts it as 0 and reports how many such lines exist.
-`note` is commentary and does not count as an action.
+`note` is commentary and does not count as an action. The run folder holds goal.json
+(research run) or task.json (code-writer-council task).
 
 Exit 0 ok, 1 bad input.
 """
@@ -55,8 +56,8 @@ def add(run, kind, cost_usd, detail):
         raise ValueError("invalid cost_usd (must be a finite nonnegative number or null)")
     if not isinstance(detail, str) or detail.strip() == "":
         raise ValueError("missing field: detail")
-    if not (run / "goal.json").is_file():
-        raise ValueError(f"no goal.json in {run}; run goal.py new first")
+    if not any((run / name).is_file() for name in ("goal.json", "task.json")):
+        raise ValueError(f"no goal.json or task.json in {run}; run goal.py new or task.py new first")
     entry = {"ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
              "kind": kind, "cost_usd": cost_usd, "detail": detail}
     with (run / FILENAME).open("a", encoding="utf-8") as fh:

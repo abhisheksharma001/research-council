@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
-"""Running spend against the user-set budget in goal.json.
+"""Running spend against the user-set budget in goal.json or task.json.
 
 Usage:
   python3 scripts/budget.py check --run <run-dir>
 
-Reads goal.json through goal.load (so a hand-edited budget is refused) and journal.jsonl.
+Reads goal.json through goal.load, or task.json (a code-writer-council run) through
+task.load, so a hand-edited budget is refused either way, plus journal.jsonl.
 Prints one line:
   spent: 12/60 min, 30/200 actions, 2/4 subagents, ~$0.40/$5 (unmetered: 3)
 Exit 0 when every number is within its cap, 2 when any cap is exceeded (each exceeded cap
 named on stderr), 1 when goal.json is missing, tampered, or lacks a budget number.
 
-Caps come only from goal.json. This script defines no default and never changes a cap
+Caps come only from that record. This script defines no default and never changes a cap
 (CLAUDE.md invariant 4).
 """
 import argparse
@@ -21,6 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import goal  # noqa: E402
 import journal  # noqa: E402
+import task  # noqa: E402
 
 CAPS = ("minutes", "max_actions", "max_subagents", "usd_estimate_cap")
 
@@ -29,16 +31,25 @@ def _money(v):
     return f"{v:g}"
 
 
+def _record(run):
+    """(name, record, validation errors): goal.json for a research run, task.json for a code task."""
+    run = Path(run)
+    if not (run / "goal.json").is_file() and (run / "task.json").is_file():
+        t = task.load(run)
+        return "task.json", t, task.validate_budget(t.get("budget"), "task.json budget")
+    g = goal.load(run)
+    return "goal.json", g, goal.validate({key: g.get(key) for key in goal.USER_FIELDS})
+
+
 def status(run, now=None):
     """Return {spent, caps, unmetered, exceeded}. Raises ValueError."""
-    g = goal.load(run)
+    name, g, errors = _record(run)
     budget = g.get("budget", {})
     if not isinstance(budget, dict):
-        raise ValueError("goal.json budget must be an object")
+        raise ValueError(f"{name} budget must be an object")
     for k in CAPS:
         if k not in budget:
-            raise ValueError(f"goal.json budget missing: {k} (no default exists)")
-    errors = goal.validate({key: g.get(key) for key in goal.USER_FIELDS})
+            raise ValueError(f"{name} budget missing: {k} (no default exists)")
     if errors:
         raise ValueError("; ".join(errors))
     caps = {k: budget[k] for k in CAPS}
