@@ -212,3 +212,4 @@ dropped (B, then Thinker) and the reply says which.
 ## Status
 | step | state | learned |
 |---|---|---|
+| S-36 | done 2026-09-17 (PR #42) | The step's file list missed `tests/test_who_runs_this.py`, which hard-counts entry points (agents plus skills); a third skill needs the count bumped, so every later step that adds an agent (S-41, S-42) must bump it too. One guard test per rule sentence, none counting the rules, is what makes "remove one rule, exactly one test fails" true. Suite 301 tests, five validators OK. |
