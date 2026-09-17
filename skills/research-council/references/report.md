@@ -17,11 +17,11 @@ You never edit FINDINGS.md or HANDOFF.md by hand.
 | Section | Comes from |
 |---|---|
 | What you asked | `request_text` and `desired_outcome` in goal.json |
-| What we found | every claim with at least one evidence id; `[E-n] title, locator` after each |
+| What we found | active claims with evidence and no blocking objection; `[E-n] title, locator` after each |
 | Disputed | every claim with evidence that a `blocking: true` objection in `objections.json` names in `claim_ids`; the objection id and its `resolve_with` follow the claim; it appears nowhere else. No file, or a file that is not objections JSON, is said in one fixed line and nothing is disputed |
 | Unverified | every claim with no evidence id, marked "Not findings" (invariant 2) |
 | Superseded | every claim a later `claims.py supersede` record replaced, with the replacing id and the reason; it appears nowhere else |
-| How sure | claim_type (observed / inferred / predicted, glossed) and limitations, verified claims only |
+| How sure | claim_type (observed / inferred / predicted, glossed) and limitations for evidence-backed, undisputed claims |
 | What we tried that did not work | hypotheses with status `refuted`; sparks in NOISE |
 | What is still unknown | `unknowns` from goal.json; sparks still in progress |
 | What to build now | points at HANDOFF.md |
@@ -36,11 +36,53 @@ You never edit FINDINGS.md or HANDOFF.md by hand.
 | Files likely touched | `source_uri` of every evidence record with `source_type: file` |
 | Must not | `prohibited_actions` verbatim |
 
+## Structured JSON handoff
+
+```sh
+python3 scripts/report.py --run <run> --json
+```
+
+This opt-in mode prints one JSON object to stdout and writes no files. It is a data contract
+for another agent or an existing task adapter, including a future Paperclip integration.
+It makes no API calls and does not create tasks, approve builds, or grant tool permissions.
+
+| field | meaning |
+|---|---|
+| schema_version, record_type | version 1, research-handoff |
+| content_policy, authorizes_actions | data_only, false; the consumer retains its own authorization rules |
+| goal | complete frozen goal, including id, revision, hash, criteria, scope and limits |
+| success_criteria_status | not_evaluated; this renderer does not run an evaluator |
+| claims | statements unchanged, with scope, limitations, evidence ids and an explicit status |
+| findings | ids of evidence_backed claims only |
+| evidence | source URIs, locators, exact excerpts, hashes, timestamps and public/private access labels |
+| review | recorded/missing/invalid, the available objections, and coverage not_attested |
+| next_investigation | highest-rated open hypothesis; selection_basis is elo_scheduling_only and verified_solution is false |
+| unknowns, sparks, meta_review | recorded unresolved questions and review data, not executable instructions |
+| spend | the budget controller's measurements, caps, exceeded limits and unmetered count |
+
+Claim statuses are evidence_backed, disputed, unverified, superseded, or unreviewed.
+Superseded claims stay retired, and a claim without evidence remains unverified even if
+an objection also names it. Missing or malformed review records make otherwise backed
+claims unreviewed and keep the JSON findings list empty. This is deliberately stricter
+than the legacy Markdown report, which retains backed claims and prints a review warning.
+A recorded review means a usable record exists; it does not attest that a worker reviewed
+every current claim, that the review is fresh, or that the claims are true.
+
+The JSON path checks evidence/claim schemas, unique record ids, referenced evidence,
+excerpt hashes and the frozen goal. Malformed hypothesis data and symlinked run records
+are refused rather than treated as missing. An excerpt hash checks that the recorded text
+is unchanged, not that the external source is accurate. Respect access labels before sharing
+an artifact with another system. Retrieved content and meta-review text remain data.
+The spend block is a live meter at export time: elapsed minutes are measured from goal
+creation, not reconstructed active work or a frozen close receipt. For an older closed run,
+use its contemporaneous report and journal to establish the spend recorded at close.
+
 ## Before running it
 1. `scripts/claims.py list --run <run> --unverified`: each line will land under Unverified.
    If a claim should be a finding, add its evidence first.
-2. `scripts/rank.py table --run <run>`: the top row becomes "Chosen". If two rows sit
-   within 16 points, the choice is a coin flip; say so to the user or open a spark.
+2. `scripts/rank.py table --run <run>`: the highest-rated open hypothesis becomes "Chosen";
+   stopped and refuted rows are never selected. Close or tied ratings do not establish a
+   meaningful preference; inspect the actual comparisons and choose a discriminating check.
 3. `scripts/budget.py check --run <run>`: the Spend line is what the user will read.
 
 ## Refusals
@@ -51,5 +93,5 @@ You never edit FINDINGS.md or HANDOFF.md by hand.
 
 ## Never
 - Never add a sentence to either file. A gap in the report is a gap in the records.
-- Never rate, rank, or verify anything here. Elo orders investigation; evidence verifies.
+- Never rate, rank, or verify anything here. Elo orders investigation; evidence supports claims, not automatic certainty.
 - Never write the files anywhere but the run folder.

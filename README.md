@@ -108,7 +108,18 @@ have no automatic promotion authority.
 The intended boundary is a reusable research procedure and traceable handoff, not a second
 agent-management platform. Paperclip-specific wiring is deferred until its runtime and task
 contract are selected. No live Paperclip connection, task write, or end-to-end compatibility
-is claimed. The S-34 structured handoff is the next local integration step.
+is claimed. An existing agent or task adapter can consume a structured handoff:
+
+```sh
+python3 scripts/report.py --run /absolute/run-folder --json
+```
+
+This prints JSON without changing the run. It carries the frozen goal, evidence locators and
+excerpt hashes, claim statuses, review records, unknowns, spend, and the next hypothesis to
+investigate. Missing or malformed reviews keep backed claims out of its findings list.
+Recorded review does not attest coverage or freshness. The artifact grants no new permissions
+and never says that success criteria passed or a ranking proved a solution. The consumer must
+respect its own task authorization and the evidence's public/private access labels.
 
 ## Self-improvement and verification
 
@@ -126,8 +137,9 @@ python3 scripts/validate_skill.py .devin/skills/research-council
 python3 scripts/validate_skill.py .devin/skills/self-improve
 ```
 
-Status: S-1..S-31 are the merged baseline. S-32..S-34 are the local portability upgrade,
-tracked in `docs/spec-v1.md`; they are not a release or a live provider benchmark.
+Status: S-1..S-31 are the merged baseline. S-32..S-35 form the local 0.2.0 candidate,
+tracked in `docs/spec-v1.md`; it is not published, merged, or a live provider benchmark.
+S-35's numeric-budget fix was completed before the dependent S-33 controller.
 The initial runs and the 2026-09-10 adapted self-assessment are recorded in
 `docs/runs/2026-09-09-first-run.md` and `docs/runs/2026-09-09-self-run.md`.
 
