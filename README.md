@@ -12,6 +12,13 @@ Python 3.11+, standard library only. No pip installs or provider API key require
 The host supplies the model and research tools; its usage may still be billed.
 
 ```sh
+claude plugin marketplace add abhisheksharma001/research-council
+claude plugin install research-council@research-council
+```
+
+The plugin loads on the next Claude Code session. To try it from a clone without installing:
+
+```sh
 git clone https://github.com/abhisheksharma001/research-council
 claude --plugin-dir ./research-council
 ```
