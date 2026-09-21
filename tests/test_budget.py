@@ -116,6 +116,17 @@ class BudgetTests(unittest.TestCase):
                          "spent: 12/60 min, 5/200 actions, 2/4 subagents, ~$0.75/$5 (unmetered: 3)")
         self.assertEqual(st["exceeded"], [])
 
+    def test_judge_is_a_metered_action_from_the_cli(self):
+        r = subprocess.run([sys.executable, str(JOURNAL_SCRIPT), "add", "--run", str(self.run),
+                            "--kind", "judge", "--cost_usd", "0.00002",
+                            "--detail", "judge claim C-1 unsure"], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        st = budget.status(self.run)
+        self.assertEqual(st["spent"]["max_actions"], 1)
+        self.assertEqual(st["spent"]["usd_estimate_cap"], 0.00002)
+        self.assertEqual(st["spent"]["max_subagents"], 0)
+        self.assertEqual(st["exceeded"], [])
+
     def test_note_is_not_an_action(self):
         self.log("note", None, n=5)
         self.assertEqual(budget.status(self.run)["spent"]["max_actions"], 0)

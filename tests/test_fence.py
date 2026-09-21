@@ -87,6 +87,12 @@ class FenceTests(unittest.TestCase):
         fence.snapshot(self.run, "ranking")
         self.assertEqual(fence.violations(self.run, "reflection"), [])
 
+    def test_judge_records_written_during_a_spawn_are_never_compared(self):
+        fence.snapshot(self.run, "reflection")
+        (self.run / "judge.jsonl").write_text('{"battery": "claim", "subject": "C-1"}\n')
+        self.assertEqual(fence.violations(self.run, "reflection"), [])
+        self.assertEqual(self.cli("check", "reflection").returncode, 0)
+
     def test_check_deletes_nothing(self):
         fence.snapshot(self.run, "reflection")
         (self.run / "extra.txt").write_text("hello")
