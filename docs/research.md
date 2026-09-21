@@ -140,3 +140,23 @@ yet. A false stop is safe in the egress direction: it prints `skipped` and the r
 the number is a by-product of the step that already has to run.
 **Status:** open
 **Answer:**
+
+### R-10 — What shape does a Jev choice or score answer arrive in?
+
+**Where:** jev seam, `docs/spec-jev.md` S-55 · `scripts/judge.py` `answer_value` · the evidence
+battery's `strength` and `relevance` questions
+**Find out:** what a live `POST /v1/systemone` puts in `answers` for a question of type `choice`
+and for one of type `score`: the bare option string and the bare level, or an object keyed by the
+type as R-8 saw for `noul`, or something else again, and whether a choice answer carries a
+probability beside the chosen option. Only a real response settles it. If a choice answer does
+carry a probability, `judge.jsonl` should record that too rather than the option alone, because a
+`strength` of `vendor` at 0.34 is a different fact from one at 0.98.
+**Confidence:** low. The `noul` shape was read from the jev skill's own scripts (R-8) and even
+that disagrees with itself; no script in this repository or in that skill reads a choice or a
+score answer at all, so this is a guess from the API's documented answer types.
+**Review:** higher model, `scripts/judge.py` `answer_value`. Both shapes are accepted and an
+option outside the battery's own list or a level outside its own scale raises, so an unknown body
+is a `skipped: adapter ...` line and never a source strength written from a guess. The first live
+evidence-battery call answers it, as it does R-8.
+**Status:** open
+**Answer:**
