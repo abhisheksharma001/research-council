@@ -86,5 +86,24 @@ class CodeCouncilSkill(unittest.TestCase):
         self.assertIn(RULES[6], text())
 
 
+    # S-41: the tier is copied from the guard; every Reviewer spawn is fenced and its reply saved by the Supervisor
+    def test_tier_stage_copies_the_tier_from_the_scope_guard(self):
+        t = text()
+        block = t[t.find("**Tier.**"):t.find("**Review.**")]
+        self.assertIn("Copy `tier: <n>` from the scope guard", block)
+        self.assertIn("Reviewer A is never dropped", block)
+
+    def test_review_stage_fences_the_spawn_and_saves_the_reply_after_the_check(self):
+        t = text()
+        block = t[t.find("**Review.**"):t.find("**Fix.**")]
+        for needle in ("<run>/diff.patch", "scripts/budget.py check --run <run>",
+                       "scripts/fence.py snapshot --run <run> --role code-reviewer", "Spawn code-reviewer",
+                       "one Agent call each in the same turn", "scripts/fence.py check --run <run> --role code-reviewer",
+                       "review-1.json", "review-2.json", "--kind subagent"):
+            self.assertIn(needle, block, needle)
+        order = [block.index(s) for s in ("fence.py snapshot", "Spawn code-reviewer", "fence.py check", "review-1.json")]
+        self.assertEqual(order, sorted(order))
+
+
 if __name__ == "__main__":
     unittest.main()
