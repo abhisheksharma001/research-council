@@ -149,8 +149,9 @@ python3 scripts/validate_skill.py .devin/skills/research-council
 python3 scripts/validate_skill.py .devin/skills/self-improve
 ```
 
-Status: S-1..S-31 are the merged baseline. S-32..S-35 form the local 0.2.0 candidate,
-tracked in `docs/spec-v1.md`; it is not published, merged, or a live provider benchmark.
+Status: S-1..S-31 are the merged baseline. S-32..S-35 formed the 0.2.0 candidate,
+tracked in `docs/spec-v1.md`; all four are merged (PR #36, #37, #38, #41), with no live
+provider benchmark claimed.
 S-35's numeric-budget fix was completed before the dependent S-33 controller.
 The initial runs and the 2026-09-10 adapted self-assessment are recorded in
 `docs/runs/2026-09-09-first-run.md` and `docs/runs/2026-09-09-self-run.md`.

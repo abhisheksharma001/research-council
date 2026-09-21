@@ -43,7 +43,7 @@ Bugs 1-8 found in the first dry run: `docs/runs/2026-09-09-first-run.md`. Bug 9 
 
 | id | evidence and reproduction | correction | state |
 |---|---|---|---|
-| 22 | `grep -n "not pushed or merged" docs/spec-v1.md` prints the four Upgrade status rows (S-32, S-35, S-33, S-34), and README's Status paragraph says the 0.2.0 candidate "is not published, merged". `git log origin/main --oneline` shows all four merged: 7c71c3f (#36), 91e83f5 (#37), 5c22b4f (#38), cfde0ee (#41). The register and README claim less than what is true, so a reader cannot trust either for what is on main. | Rows and README paragraph state the merge with PR number; docs only. | open, queued as S-46 |
+| 22 | `grep -n "not pushed or merged" docs/spec-v1.md` prints the four Upgrade status rows (S-32, S-35, S-33, S-34), and README's Status paragraph says the 0.2.0 candidate "is not published, merged". `git log origin/main --oneline` shows all four merged: 7c71c3f (#36), 91e83f5 (#37), 5c22b4f (#38), cfde0ee (#41). The register and README claim less than what is true, so a reader cannot trust either for what is on main. | Rows and README paragraph state the merge with PR number; docs only. | fixed 2026-09-21 in S-46 (PR #57) |
 
 ## 2026-09-21 jev seam design pass
 
