@@ -2,18 +2,20 @@
 """After-spawn fence: prove a council role touched only its own file.
 
 Usage:
-  python3 scripts/fence.py snapshot --run <run-dir> --role <generation|reflection|ranking|meta-review>
+  python3 scripts/fence.py snapshot --run <run-dir> --role <role>
   python3 scripts/fence.py check    --run <run-dir> --role <role>
+  role: generation | reflection | ranking | meta-review | code-reviewer | code-thinker
 
 `snapshot` runs before the spawn. It writes <run>/fence/<role>.json holding every file in
 the run folder (recursively) and its sha256. `check` runs after the spawn and compares the
 folder with that snapshot. Allowed changes: `hypotheses.json` for generation, `meta.md` for
-meta-review, nothing for reflection and ranking. Every other new, changed or removed file is
-printed as `violation: <role> wrote <file>` (or `removed`), one `note` naming them is appended
-to journal.jsonl, and the exit code is 2. Exit 0 when clean.
+meta-review, nothing for reflection, ranking, code-reviewer and code-thinker. Every other
+new, changed or removed file is printed as `violation: <role> wrote <file>` (or `removed`),
+one `note` naming them is appended to journal.jsonl, and the exit code is 2. Exit 0 when clean.
 
 `journal.jsonl` and the `fence/` folder are the Supervisor's and are never compared. The
-script deletes nothing: the Supervisor decides what to do with a violating file.
+script deletes nothing: the Supervisor decides what to do with a violating file. The run
+folder holds goal.json (research run) or task.json (code-writer-council task).
 
 Exit 0 clean, 1 bad input or missing snapshot, 2 violation.
 """
@@ -32,6 +34,8 @@ ALLOWED = {
     "reflection": set(),
     "ranking": set(),
     "meta-review": {"meta.md"},
+    "code-reviewer": set(),
+    "code-thinker": set(),
 }
 SKIP = {journal.FILENAME}
 FENCE_DIR = "fence"
@@ -59,8 +63,8 @@ def _check_inputs(run, role):
     run = Path(run)
     if role not in ALLOWED:
         raise ValueError(f"invalid role: {role!r} (one of {', '.join(ALLOWED)})")
-    if not (run / "goal.json").is_file():
-        raise ValueError(f"no goal.json in {run}; run goal.py new first")
+    if not any((run / name).is_file() for name in ("goal.json", "task.json")):
+        raise ValueError(f"no goal.json or task.json in {run}; run goal.py new or task.py new first")
     return run
 
 

@@ -10,6 +10,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import fence  # noqa: E402
 import goal  # noqa: E402
 import journal  # noqa: E402
+import task  # noqa: E402
 
 SCRIPT = ROOT / "scripts" / "fence.py"
 FIXTURE = ROOT / "tests" / "fixtures" / "goal_booking.json"
@@ -115,6 +116,50 @@ class CouncilFenceBlock(unittest.TestCase):
         self.assertIn("scripts/fence.py snapshot --run <run> --role <role>", block)
         self.assertIn("scripts/fence.py check --run <run> --role <role>", block)
         self.assertNotIn("this listing is the fence", block)
+
+
+
+class CodeCouncilFence(unittest.TestCase):
+    """S-41: the Reviewer and the Thinker may create nothing; a task run needs no goal.json."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        body = {"request_text": "x", "test_command": "true", "allowed_paths": ["a"], "max_diff_lines": 5,
+                "expected_small": True, "explain": False,
+                "budget": {"minutes": 20, "max_actions": 60, "max_subagents": 3, "usd_estimate_cap": 0, "set_by": "user"}}
+        self.run = task.new(self.tmp.name, body)
+        (self.run / "diff.patch").write_text("")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def cli(self, cmd, role):
+        return subprocess.run([sys.executable, str(SCRIPT), cmd, "--run", str(self.run), "--role", role],
+                              capture_output=True, text=True)
+
+    def test_reviewer_creating_any_file_exits_2(self):
+        self.assertFalse((self.run / "goal.json").exists())
+        self.assertEqual(self.cli("snapshot", "code-reviewer").returncode, 0)
+        (self.run / "review-1.json").write_text('{"findings": []}')
+        r = self.cli("check", "code-reviewer")
+        self.assertEqual(r.returncode, 2, r.stderr)
+        self.assertEqual(r.stdout, "violation: code-reviewer wrote review-1.json\n")
+        notes = [e for e in journal.read(self.run) if e["kind"] == "note"]
+        self.assertEqual(len(notes), 1)
+
+    def test_reviewer_and_thinker_that_only_reply_exit_0(self):
+        for role in ("code-reviewer", "code-thinker"):
+            self.assertEqual(self.cli("snapshot", role).returncode, 0)
+            r = self.cli("check", role)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(r.stdout, f"ok: {role} changed nothing outside its reply\n")
+
+    def test_run_with_neither_record_is_exit_1(self):
+        with tempfile.TemporaryDirectory() as empty:
+            r = subprocess.run([sys.executable, str(SCRIPT), "snapshot", "--run", empty, "--role", "code-reviewer"],
+                               capture_output=True, text=True)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("no goal.json or task.json", r.stderr)
 
 
 if __name__ == "__main__":

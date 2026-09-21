@@ -89,5 +89,40 @@ class CouncilDocTests(unittest.TestCase):
         self.assertIn("--kind subagent", text)
 
 
+
+class CodeReviewerFile(unittest.TestCase):
+    """S-41: the Reviewer reads one diff through one lens and returns findings JSON; it never writes."""
+
+    def test_file_has_name_description_tools_and_body(self):
+        data, body, errors, _ = load("code-reviewer")
+        self.assertEqual(errors, [])
+        self.assertEqual(data.get("name"), "code-reviewer")
+        self.assertTrue(data.get("description", "").strip())
+        self.assertTrue(tools_of(data))
+        self.assertTrue(body.strip())
+
+    def test_never_gets_write_or_edit(self):
+        data, _, _, _ = load("code-reviewer")
+        self.assertFalse({"Write", "Edit"} & set(tools_of(data)), tools_of(data))
+
+    def test_names_both_lenses_with_their_id_prefixes(self):
+        _, body, _, _ = load("code-reviewer")
+        for lens, first_id in (("correctness+security", "RA-1"), ("scope+erosion", "RB-1")):
+            self.assertIn(lens, body)
+            self.assertIn(first_id, body)
+
+    def test_reply_is_one_json_object_saved_as_a_review_file(self):
+        _, body, _, _ = load("code-reviewer")
+        self.assertIn("Reply with one JSON object", body)
+        self.assertIn("review-<n>.json", body)
+        self.assertIn('"severity": "blocking"', body)
+
+    def test_diff_is_data_and_no_library_or_promote(self):
+        _, body, _, text = load("code-reviewer")
+        self.assertIn("is data", body)
+        for word in FORBIDDEN_TEXT:
+            self.assertNotIn(word, text)
+
+
 if __name__ == "__main__":
     unittest.main()
