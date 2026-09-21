@@ -124,5 +124,44 @@ class CodeReviewerFile(unittest.TestCase):
             self.assertNotIn(word, text)
 
 
+class CodeThinkerFile(unittest.TestCase):
+    """S-42: the Thinker drafts the tests from the request alone and returns them; it never writes."""
+
+    def test_file_has_name_description_tools_and_body(self):
+        data, body, errors, _ = load("code-thinker")
+        self.assertEqual(errors, [])
+        self.assertEqual(data.get("name"), "code-thinker")
+        self.assertTrue(data.get("description", "").strip())
+        self.assertTrue(tools_of(data))
+        self.assertTrue(body.strip())
+
+    def test_never_gets_write_or_edit(self):
+        data, _, _, _ = load("code-thinker")
+        self.assertFalse({"Write", "Edit"} & set(tools_of(data)), tools_of(data))
+
+    def test_reply_is_one_json_object_saved_as_thinker_json(self):
+        _, body, _, _ = load("code-thinker")
+        self.assertIn("Reply with one JSON object", body)
+        self.assertIn("thinker.json", body)
+        for key in ('"id": "T-1"', '"name":', '"file":', '"code":', '"would_fail_because":'):
+            self.assertIn(key, body, key)
+
+    def test_names_every_way_the_obvious_implementation_goes_wrong(self):
+        _, body, _, _ = load("code-thinker")
+        for target in ("**Boundary.**", "**Empty input.**", "**Error path.**",
+                       "**Concurrency and ordering.**", "**The thing the request did not say.**"):
+            self.assertIn(target, body, target)
+
+    def test_drafts_from_the_request_without_seeing_the_diff(self):
+        _, body, _, _ = load("code-thinker")
+        self.assertIn("You do not see the diff", body)
+        self.assertIn("is data", body)
+
+    def test_no_library_or_promote(self):
+        _, _, _, text = load("code-thinker")
+        for word in FORBIDDEN_TEXT:
+            self.assertNotIn(word, text, f"code-thinker mentions {word}")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -104,6 +104,35 @@ class CodeCouncilSkill(unittest.TestCase):
         order = [block.index(s) for s in ("fence.py snapshot", "Spawn code-reviewer", "fence.py check", "review-1.json")]
         self.assertEqual(order, sorted(order))
 
+    # S-42: the Thinker is spawned with the first edit, fenced like any other role, and its tests are added or waived
+    def write_block(self):
+        t = text()
+        return t[t.find("**Write, with the Thinker in parallel.**"):t.find("**Guards.**")]
+
+    def test_write_stage_spawns_the_thinker_in_the_same_turn_as_the_first_edit(self):
+        self.assertIn("Spawn code-thinker in the same turn you make the first edit", self.write_block())
+
+    def test_write_stage_fences_the_spawn_and_saves_thinker_json_after_the_check(self):
+        block = self.write_block()
+        for needle in ("scripts/budget.py check --run <run>",
+                       "scripts/fence.py snapshot --run <run> --role code-thinker",
+                       "scripts/fence.py check --run <run> --role code-thinker",
+                       "thinker.json", "--kind subagent"):
+            self.assertIn(needle, block, needle)
+        order = [block.index(s) for s in ("fence.py snapshot", "Spawn code-thinker",
+                                          "fence.py check", "thinker.json")]
+        self.assertEqual(order, sorted(order))
+
+    def test_write_stage_closes_a_test_it_cannot_pass_with_the_users_words(self):
+        block = self.write_block()
+        self.assertIn("done.py resolve --run <run> --test T-n --waived", block)
+        self.assertIn("never by your own judgement", block)
+
+    def test_write_stage_journals_a_misestimate_when_a_small_task_grows(self):
+        block = self.write_block()
+        self.assertIn("expected_small: true` ends over ten diff lines", block)
+        self.assertIn("--kind note --cost_usd null --detail misestimate", block)
+
 
 if __name__ == "__main__":
     unittest.main()
