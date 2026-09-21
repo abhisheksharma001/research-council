@@ -81,6 +81,8 @@ class JudgeTests(unittest.TestCase):
     def cli(self, *args, key=None):
         env = {k: v for k, v in os.environ.items() if k != "TYPESAFE_API_KEY"}
         env["PYTHONDONTWRITEBYTECODE"] = "1"
+        # The discard port, so that even a guard removed by hand cannot reach the vendor.
+        env["TYPESAFE_BASE_URL"] = "http://127.0.0.1:9"
         if key is not None:
             env["TYPESAFE_API_KEY"] = key
         return subprocess.run([sys.executable, str(SCRIPT), *map(str, args)],
