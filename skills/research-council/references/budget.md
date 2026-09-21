@@ -11,7 +11,7 @@ Ask the user for all four numbers and write them into the goal (S-3):
 | cap | meaning |
 |---|---|
 | `minutes` | wall-clock minutes since `created_at` |
-| `max_actions` | journal lines of kind fetch, read, write, subagent, exec (`note` does not count) |
+| `max_actions` | journal lines of kind fetch, read, write, subagent, exec, judge (`note` does not count) |
 | `max_subagents` | journal lines of kind `subagent` |
 | `usd_estimate_cap` | sum of `cost_usd`; `null` counts as 0 and is reported as `unmetered: N` |
 

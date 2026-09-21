@@ -13,9 +13,9 @@ meta-review, nothing for reflection, ranking, code-reviewer and code-thinker. Ev
 new, changed or removed file is printed as `violation: <role> wrote <file>` (or `removed`),
 one `note` naming them is appended to journal.jsonl, and the exit code is 2. Exit 0 when clean.
 
-`journal.jsonl` and the `fence/` folder are the Supervisor's and are never compared. The
-script deletes nothing: the Supervisor decides what to do with a violating file. The run
-folder holds goal.json (research run) or task.json (code-writer-council task).
+`journal.jsonl`, `judge.jsonl` and the `fence/` folder are the Supervisor's and are never
+compared. The script deletes nothing: the Supervisor decides what to do with a violating
+file. The run folder holds goal.json (research run) or task.json (code-writer-council task).
 
 Exit 0 clean, 1 bad input or missing snapshot, 2 violation.
 """
@@ -37,7 +37,7 @@ ALLOWED = {
     "code-reviewer": set(),
     "code-thinker": set(),
 }
-SKIP = {journal.FILENAME}
+SKIP = {journal.FILENAME, "judge.jsonl"}
 FENCE_DIR = "fence"
 
 

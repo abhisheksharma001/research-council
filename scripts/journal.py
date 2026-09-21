@@ -2,13 +2,14 @@
 """Append one line to a run's journal.jsonl.
 
 Usage:
-  python3 scripts/journal.py add --run <run-dir> --kind <fetch|read|write|subagent|exec|note> \
+  python3 scripts/journal.py add --run <run-dir> --kind <fetch|read|write|subagent|exec|judge|note> \
       --cost_usd <float|null> --detail <text>
 
 Every line is {"ts", "kind", "cost_usd", "detail"}. `cost_usd null` means the cost is
 unknown (unmetered); budget.py counts it as 0 and reports how many such lines exist.
-`note` is commentary and does not count as an action. The run folder holds goal.json
-(research run) or task.json (code-writer-council task).
+`judge` is one decision call made through scripts/judge.py and counts as an action like
+any other. `note` is commentary and does not count as an action. The run folder holds
+goal.json (research run) or task.json (code-writer-council task).
 
 Exit 0 ok, 1 bad input.
 """
@@ -19,7 +20,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-KINDS = ("fetch", "read", "write", "subagent", "exec", "note")
+KINDS = ("fetch", "read", "write", "subagent", "exec", "judge", "note")
 ACTION_KINDS = tuple(k for k in KINDS if k != "note")
 FILENAME = "journal.jsonl"
 
