@@ -28,10 +28,10 @@ exiting 0 and writing nothing: the run folder is not <root>/AGI_Research/runs/<i
 workspace has no .research-council/judge.json carrying enabled_by, date and terms_read true;
 budget.py reports a cap already exceeded, a zero dollar cap, or one more action than the
 action cap allows; the evidence battery has no product name in the opt-in file to ask about; a
-cited evidence record's access_scope is not public; the assembled state
-carries an address, a run of digits long enough to be a phone number, a key-shaped token or a
-home directory path; the state is longer than 60000 characters; TYPESAFE_API_KEY is not in the
-environment; the adapter raised.
+cited evidence record's access_scope is not public; the assembled state carries an address, a
+run of digits long enough to be a phone number, a key-shaped token or a home directory path;
+the state is longer than 60000 characters; TYPESAFE_API_KEY is not in the environment; the
+adapter raised.
 
 Every number in a claim's statement must appear in one of the cited excerpts. A missing one is
 a `no` decided in code with no call, which is the rule agents/reflection.md already gives the
@@ -44,8 +44,8 @@ threshold is defined here: `fitted` stays None until a calibration on labelled c
 in, and until then every answered decision is `unsure`.
 
 Exit 0 in shadow mode whatever the decision, 1 on bad input: an unknown battery, claim id or
-evidence id, a run with no goal.json, `--mode gate` (not wired until thresholds exist), or `--adapter fake`
-without `--fake-answers`.
+evidence id, a run with no goal.json, `--mode gate` (not wired until thresholds exist), or
+`--adapter fake` without `--fake-answers`.
 """
 import argparse
 import json
@@ -229,8 +229,8 @@ def settings(root):
         out[field] = value.strip() if isinstance(value, str) else ""
     for field in HOST_FIELDS:
         value = body.get(field)
-        out[field] = [h.strip().lower() for h in value
-                      if isinstance(h, str) and h.strip()] if isinstance(value, list) else []
+        listed = value if isinstance(value, list) else []
+        out[field] = [h.strip().lower() for h in listed if isinstance(h, str) and h.strip()]
     return out
 
 
@@ -391,11 +391,11 @@ def decide(name, answers, thresholds):
     """
     if name != "claim" or not thresholds:
         return "unsure"
-    low = {name: answers[name] <= thresholds[name]["low"] for name in answers}
-    high = {name: answers[name] >= thresholds[name]["high"] for name in answers}
+    low = {q: answers[q] <= thresholds[q]["low"] for q in answers}
+    high = {q: answers[q] >= thresholds[q]["high"] for q in answers}
     if low["supported"] or high["contradicted"] or high["wider"]:
         return "no"
-    if high["supported"] and all(low[name] for name in ("contradicted", "wider", "inferred")):
+    if high["supported"] and all(low[q] for q in ("contradicted", "wider", "inferred")):
         return "yes"
     return "unsure"
 
