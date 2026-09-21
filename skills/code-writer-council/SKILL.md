@@ -62,8 +62,9 @@ that dry run.
    `max_diff_lines`, `expected_small`, `explain` — and freeze it:
    `python3 scripts/task.py new --root "$WORKSPACE" --from <body.json>`. It prints the run
    folder, and every later stage takes that folder as `--run`. Exit 1 names every missing or
-   invalid field. `warning: AGI_Research/ is not ignored` means the workspace would commit the
-   run folder: tell the user, and add the line to their `.gitignore` only with their go.
+   invalid field. A line starting `warning: AGI_Research/ is not ignored by` means the workspace
+   would commit the run folder, which holds the client's code: tell the user, and add the line to
+   their `.gitignore` only with their go.
 2. **Write, with the Thinker in parallel.** S-42. When task.json says `expected_small: false`
    and `max_subagents` is 2 or more:
    `python3 scripts/budget.py check --run <run>` (exit 2: stop, do not spawn);
@@ -118,8 +119,8 @@ that dry run.
    computes the diff sha at that moment; never type one), or by the user's exact words:
    `python3 scripts/done.py resolve --run <run> --finding <id> --waived "<the user's words>"`.
    Your own reading of the finding closes nothing (rule 7). Run stage 3 again after every fix,
-   and when a fix went further than the finding asked for, spawn the Reviewer again on the new
-   diff before going on.
+   and when a fix went further than the finding asked for, run stage 5 again on the new diff, so
+   the second spawn passes the same budget check as the first.
 7. **Done.** S-40. `python3 scripts/done.py check --run <run>`. Exit 0 prints `DONE <sha256>`,
    exit 2 prints `NOT DONE` and one reason per line, exit 1 is bad input. `references/done.md`
    carries one row per reason and what to do about it: act on the reason, then run the check
