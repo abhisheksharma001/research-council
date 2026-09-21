@@ -38,3 +38,9 @@ Bugs 1-8 found in the first dry run: `docs/runs/2026-09-09-first-run.md`. Bug 9 
 | 18 | `budget.py check` printed `313/90 min` at report time after 25 minutes of Supervisor work; the run waited 288 minutes between session turns. Minutes are wall clock since `created_at` (budget.md), so an interactive pause consumes the user's cap and forces exit 2 on the next check. | budget.md states the wall-clock rule up front and SKILL.md tells the Supervisor to finish a run in one sitting or report the pause; an active-time line from journal timestamps beside the wall-clock line. | queued |
 | 19 | Reflection's reply was 15 KB of JSON with raw control characters inside strings; the task notification showed only its tail, and `json.loads` refused it until parsed with `strict=False`. council.md says "save its reply as objections.json" and gives no ingestion command (bug 13 again, seen from the other side). | S-33's validated return-only ingestion command, with lenient parsing and shape validation, covers it. | queued under S-33 |
 
+
+## 2026-09-21 S-45 marketplace step
+
+| id | evidence and reproduction | correction | state |
+|---|---|---|---|
+| 22 | `grep -n "not pushed or merged" docs/spec-v1.md` prints the four Upgrade status rows (S-32, S-35, S-33, S-34), and README's Status paragraph says the 0.2.0 candidate "is not published, merged". `git log origin/main --oneline` shows all four merged: 7c71c3f (#36), 91e83f5 (#37), 5c22b4f (#38), cfde0ee (#41). The register and README claim less than what is true, so a reader cannot trust either for what is on main. | Rows and README paragraph state the merge with PR number; docs only. | open, queued as S-46 |

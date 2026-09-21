@@ -424,7 +424,18 @@ Abhishek selected agent apps first, deferred the Paperclip-specific connection, 
 **Verify:** `python3 -m unittest tests.test_marketplace -v` → 4 pass; `claude plugin validate .` → passes; after merge, the two install commands, then `claude plugin list`.
 **Must not:** move or rename `plugin.json`, any skill, agent or script; add a dependency; put a version in the catalog; change what the plugin does.
 
+### S-46 — The register and README stop saying the 0.2.0 chain is unmerged
+**PR:** one.
+**Depends on:** nothing.
+**Files:** `docs/spec-v1.md`, `README.md`, `docs/bugs.md`.
+**Today:** The four Upgrade status rows (S-32, S-35, S-33, S-34) read "locally verified 2026-09-10; not pushed or merged", and README's Status paragraph says the 0.2.0 candidate "is not published, merged". All four are on main: 7c71c3f (#36), 91e83f5 (#37), 5c22b4f (#38), cfde0ee (#41). Bug 22.
+**Change:** Each of the four rows states `done <date> (PR #<n>)` in place of the unmerged wording, keeping its learned text. README's Status paragraph says S-32..S-35 are merged and keeps the sentence that no live provider benchmark is claimed. Bug 22 state becomes fixed with the PR number. Docs only.
+**Acceptance:** WHEN `grep -c "not pushed or merged" docs/spec-v1.md` is run THEN it SHALL print 0, and WHEN `grep -c "not published, merged" README.md` is run THEN it SHALL print 0.
+**Verify:** the two greps above; `python3 -m unittest discover -s tests` still passes.
+**Must not:** touch any script, skill or test; claim a live Codex/Paperclip run or a benchmark; reword the learned text of any row.
+
 ## Install status
 
 | step | state | learned |
 |---|---|---|
+| S-45 | merged 2026-09-21 (PR #46). The acceptance (the two install commands from GitHub, then `claude plugin list`) can only run after merge; its result is recorded in the project memo and, if it fails, as a bug here | `claude plugin marketplace add` takes a URL, path or GitHub repo but no branch (checked with `--help`), so a catalog cannot be installed from a PR branch; `claude plugin validate .` is the pre-merge check and it passed. The shape is the one the caveman marketplace already uses: plugin at the repo root, `source` `./`, marketplace name equal to plugin name. Version is kept out of the catalog on purpose: another installed marketplace repeats its version in three places, which is three chances to drift. Owner is a GitHub URL, not an email. Break tests, each restored from the commit: wrong plugin name, wrong source, version added, wrong marketplace name each fail exactly 1 named test. The main checkout was mid-S-40 in another session, so this step was built in a worktree from origin/main and never touched that folder. Found bug 22 while placing the step (Upgrade status rows and README still say the merged 0.2.0 chain is unmerged); logged and queued as S-46. 4 tests, 394 total. |
