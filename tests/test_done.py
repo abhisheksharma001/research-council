@@ -295,6 +295,17 @@ class DoneTests(unittest.TestCase):
         (run / "resolutions.jsonl").unlink()
         self.thinker(run, {"id": "T-1"})
         self.assertIn("thinker.json: test 0 needs an id and a name", self.cli(run, "check").stderr)
+        self.assertEqual(evidence.read(run), [])  # no check above it ever reached the test run
+
+    def test_a_severity_outside_blocking_and_advisory_is_exit_1_before_the_test_run(self):
+        run = self.new_task()
+        self.fix()
+        self.review(run, 1, self.finding("R-1", severity="critical"))
+        r = self.cli(run, "check")
+        self.assertEqual((r.returncode, r.stdout), (1, ""))
+        self.assertIn("finding 0 needs an id and a severity of blocking or advisory", r.stderr)
+        self.assertEqual(evidence.read(run), [])
+        self.assertEqual(journal.read(run), [])
 
     def test_tampered_task_is_exit_1(self):
         run = self.new_task()
