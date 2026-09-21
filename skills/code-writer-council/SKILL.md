@@ -66,8 +66,8 @@ fills it. Until that step lands, the stage is a placeholder and the loop cannot 
    Add every test to the file its entry names, run the frozen test command, and make each one
    pass. A test you cannot make pass is closed by the user's exact words, never by your own
    judgement: `python3 scripts/done.py resolve --run <run> --test T-n --waived "<the user's words>"`.
-   When a task with `expected_small: true` ends over ten diff lines, spawn the Thinker after
-   the write and
+   When a task with `expected_small: true` ends over ten diff lines, spawn the Thinker the
+   same way after the write and
    `python3 scripts/journal.py add --run <run> --kind note --cost_usd null --detail misestimate`.
 3. **Guards.** Scope check on paths and line cap; dependency check on new imports. S-38, S-39.
 4. **Tier.** S-41. Copy `tier: <n>` from the scope guard's output; never estimate it.
