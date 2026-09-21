@@ -133,6 +133,59 @@ class CodeCouncilSkill(unittest.TestCase):
         self.assertIn("expected_small: true` ends over ten diff lines", block)
         self.assertIn("--kind note --cost_usd null --detail misestimate", block)
 
+    # S-43: every stage carries the commands that run it, the stages run in one order, and the reply
+    # quotes what the scripts printed
+    def span(self, start, end):
+        t = text()
+        return t[t.find(start):t.find(end)]
+
+    def test_task_stage_asks_for_the_caps_once_per_repository(self):
+        block = self.span("**Task.**", "**Write, with the Thinker in parallel.**")
+        for needle in (".code-council/config.json", "ask the user for all four numbers",
+                       'scripts/task.py new --root "$WORKSPACE"', "never default one",
+                       "AGI_Research/ is not ignored"):
+            self.assertIn(needle, block, needle)
+
+    def test_guards_stage_runs_both_guards_and_splits_over_the_line_cap(self):
+        block = self.span("**Guards.**", "**Tier.**")
+        for needle in ("scripts/scope.py check --run <run>", "scripts/deps.py check --run <run>",
+                       "propose a split into tasks", "the user picks which", "never raise `max_diff_lines`"):
+            self.assertIn(needle, block, needle)
+
+    def test_fix_stage_closes_a_blocking_finding_by_a_fix_or_the_users_words(self):
+        block = self.span("**Fix.**", "**Reply.**")
+        for needle in ("done.py resolve --run <run> --finding <id> --fixed",
+                       'done.py resolve --run <run> --finding <id> --waived "<the user\'s words>"',
+                       "Your own reading of the finding closes nothing",
+                       "advisory findings are named in the reply"):
+            self.assertIn(needle, block, needle)
+
+    def test_done_stage_takes_its_line_from_the_script_not_the_terminal(self):
+        block = self.span("**Done.**", "**Reply.**")
+        for needle in ("scripts/done.py check --run <run>", "`DONE <sha256>`", "`NOT DONE`",
+                       "act on the reason, then run the check again",
+                       "is not a substitute for this command"):
+            self.assertIn(needle, block, needle)
+
+    def test_the_stages_run_in_one_order(self):
+        t = text()
+        order = [t.find(s) for s in ("Spawn code-thinker", "scope.py check",
+                                     "Spawn code-reviewer", "done.py check")]
+        self.assertNotIn(-1, order, order)
+        self.assertEqual(order, sorted(order), order)
+
+    def test_reply_quotes_the_printed_line_and_the_budget_meter(self):
+        block = self.span("**Reply.**", "## Outputs")
+        for needle in ("The printed line verbatim as the first line",
+                       "scripts/budget.py check --run <run>`, verbatim",
+                       "Never write the word done in a reply that has no printed line behind it"):
+            self.assertIn(needle, block, needle)
+
+    def test_reply_explains_every_changed_file_in_learning_mode(self):
+        block = self.span("**Reply.**", "## Outputs")
+        self.assertIn("`explain: true`", block)
+        self.assertIn("one entry per changed file saying what changed, why, and which test proves it", block)
+
 
 if __name__ == "__main__":
     unittest.main()

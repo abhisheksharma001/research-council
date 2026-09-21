@@ -48,10 +48,22 @@ wired as a trigger on every code edit, with a timeout on each node.
 - A task whose caps the user has not given for this repository and will not give now.
 
 ## Procedure
-Skeleton (S-36). Each stage names the register step in `docs/spec-code-council.md` that
-fills it. Until that step lands, the stage is a placeholder and the loop cannot run.
+Eight stages, in this order. Each names the register step in `docs/spec-code-council.md` that
+built it. The stages are all written now; the loop has not been run end to end yet, and S-44 is
+that dry run.
 
-1. **Task.** Freeze the request, allowed paths, test command and caps in task.json. S-37.
+1. **Task.** S-37. Caps first: read `<workspace>/.code-council/config.json`. When it is not
+   there, ask the user for all four numbers (minutes, max_actions, max_subagents,
+   usd_estimate_cap), write the file with their numbers and `"set_by": "user"`, and never copy a
+   number from a memo, a fixture, an earlier task or this file. A user who will not give a number
+   ends the task; never default one. Then write the task body from the template in
+   `references/task.md` — `request_text` in the user's own words, `test_command` taken from the
+   repository's own test setup, `allowed_paths` including the file the Thinker's tests land in,
+   `max_diff_lines`, `expected_small`, `explain` — and freeze it:
+   `python3 scripts/task.py new --root "$WORKSPACE" --from <body.json>`. It prints the run
+   folder, and every later stage takes that folder as `--run`. Exit 1 names every missing or
+   invalid field. `warning: AGI_Research/ is not ignored` means the workspace would commit the
+   run folder: tell the user, and add the line to their `.gitignore` only with their go.
 2. **Write, with the Thinker in parallel.** S-42. When task.json says `expected_small: false`
    and `max_subagents` is 2 or more:
    `python3 scripts/budget.py check --run <run>` (exit 2: stop, do not spawn);
@@ -69,7 +81,17 @@ fills it. Until that step lands, the stage is a placeholder and the loop cannot 
    When a task with `expected_small: true` ends over ten diff lines, spawn the Thinker the
    same way after the write and
    `python3 scripts/journal.py add --run <run> --kind note --cost_usd null --detail misestimate`.
-3. **Guards.** Scope check on paths and line cap; dependency check on new imports. S-38, S-39.
+3. **Guards.** S-38, S-39. After the write, and again after every later fix:
+   `python3 scripts/scope.py check --run <run>`, then
+   `python3 scripts/deps.py check --run <run>`. Both read only; neither edits the working tree.
+   `outside: <path>`: revert that file, or stop and tell the user the task needs that path —
+   listing it is a new task, never an edit (rule 2). `over: <n>/<max> lines`: propose a split
+   into tasks, each with its own task.json and its own done.py run, and the user picks which;
+   never raise `max_diff_lines`, it is frozen with the rest of the task.
+   `verifier-edit: <path>: <reason>`: undo it; changing or deleting existing tests is a new task
+   with `allow_verifier_edits: true`. `unresolved: <name>` from the dependency guard: fetch that
+   package's registry page, record it with evidence.py, and run the guard again, or take the
+   import out (`references/deps.md`). `references/tiers.md` holds the scope guard's own table.
 4. **Tier.** S-41. Copy `tier: <n>` from the scope guard's output; never estimate it.
    `references/tiers.md` holds the table: tier 1 no Reviewer; tier 2 one Reviewer, lens
    correctness+security; tier 3 two in parallel, A correctness+security and B scope+erosion.
@@ -90,9 +112,26 @@ fills it. Until that step lands, the stage is a placeholder and the loop cannot 
    once per spawn. A reply that is not one JSON object with a `findings` list is spawned
    again once with the parse error quoted; a second bad reply goes to the user, never
    repaired by hand.
-6. **Fix.** Each blocking finding is closed by a new diff or the user's exact words. S-43.
-7. **Done.** done.py runs the frozen test command and prints DONE or NOT DONE. S-40.
-8. **Reply.** Quote the printed line; in learning mode, explain each changed file. S-43.
+6. **Fix.** S-43. Only a finding whose `severity` is `blocking` has to be closed; advisory
+   findings are named in the reply and left to the user. Close a blocking one by editing the code
+   and then `python3 scripts/done.py resolve --run <run> --finding <id> --fixed` (the script
+   computes the diff sha at that moment; never type one), or by the user's exact words:
+   `python3 scripts/done.py resolve --run <run> --finding <id> --waived "<the user's words>"`.
+   Your own reading of the finding closes nothing (rule 7). Run stage 3 again after every fix,
+   and when a fix went further than the finding asked for, spawn the Reviewer again on the new
+   diff before going on.
+7. **Done.** S-40. `python3 scripts/done.py check --run <run>`. Exit 0 prints `DONE <sha256>`,
+   exit 2 prints `NOT DONE` and one reason per line, exit 1 is bad input. `references/done.md`
+   carries one row per reason and what to do about it: act on the reason, then run the check
+   again. A test run that went green in your own terminal is not a substitute for this command;
+   the line the reply quotes comes from here, or the reply has no line.
+8. **Reply.** S-43. In this order. The printed line verbatim as the first line: `DONE <sha256>`,
+   or `NOT DONE` with every reason line and one sentence each on what happens next. Then the
+   meter line from `python3 scripts/budget.py check --run <run>`, verbatim. Then, when task.json
+   says `explain: true`, one entry per changed file saying what changed, why, and which test
+   proves it, in plain English, with no term the user has not used themselves. Then what the caps
+   dropped (Reviewer B, the Thinker) and every advisory finding, each named. Never write the word
+   done in a reply that has no printed line behind it.
 
 ## Outputs (planned)
 Under the target project, ignored by its git: AGI_Research/code/<task_id>/ holding task.json,
