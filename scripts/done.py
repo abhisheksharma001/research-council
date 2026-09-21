@@ -7,11 +7,13 @@ Usage:
   python3 scripts/done.py resolve --run <run-dir> (--finding <id> | --test <id>) --waived "<user's words>"
 
 `check` runs, in order: the budget meter (an exceeded cap stops here), the scope guard, the
-dependency guard and an empty-diff test. Only when all are clean it runs task.test_command
-in repo_root through the shell, with the minutes left on the cap as the timeout, and writes
-that run down as a `command` evidence record (source_uri the command, locator exit code and
-duration, excerpt the last 2000 characters of output, access_scope private) plus an `exec`
-journal line. Then it reads every review-<n>.json: a finding with severity "blocking" needs
+dependency guard and an empty-diff test. Only when all are clean it reads every
+review-<n>.json, thinker.json and resolutions.jsonl, so a file that does not parse stops the
+check before a test run and a metered action are spent (S-49, bug 24). Then it runs
+task.test_command in repo_root through the shell, with the minutes left on the cap as the
+timeout, and writes that run down as a `command` evidence record (source_uri the command,
+locator exit code and duration, excerpt the last 2000 characters of output, access_scope
+private) plus an `exec` journal line. A finding with severity "blocking" needs
 a resolutions.jsonl line {"finding": <id>, "how": "fixed", "diff_sha": <sha>} or
 {"finding": <id>, "how": "waived", "user_words": <text>}; a tier 2 or 3 diff with no review
 file is not done. When thinker.json exists, each test's name must appear in the added lines
@@ -204,6 +206,9 @@ def check(run, now=None):
         reasons.append(f"tests: not run (minutes cap {cap} reached)")
     if reasons:
         return None, reasons
+    names, found = findings(run)
+    done = resolutions(run)
+    tests = thinker_tests(run)
     before = diff_sha(patch, untracked)
     code, out, secs = run_tests(root, t["test_command"], left)
     evidence.add(run, {"source_type": "command", "source_uri": t["test_command"], "title": "test command",
@@ -219,13 +224,10 @@ def check(run, now=None):
     if sha != before:
         reasons.append("tests: the run changed the diff (files written into the working tree)")
     tier = scope.tier(lines)
-    names, found = findings(run)
-    done = resolutions(run)
     if tier >= 2 and not names:
         reasons.append(f"review: tier {tier} diff has no review-<n>.json")
     reasons += [f"unresolved finding: {fid}" for fid, sev in found.items()
                 if sev == "blocking" and ("finding", fid) not in done]
-    tests = thinker_tests(run)
     if tests is None:
         if tier >= 2 and st["caps"]["max_subagents"] >= 2:
             reasons.append(f"thinker: no {THINKER} for a tier {tier} diff")

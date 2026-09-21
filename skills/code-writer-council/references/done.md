@@ -16,17 +16,20 @@ one), from anywhere; it runs the test command in repo_root itself.
 
 Exit 0 prints one line, `DONE <sha256>`. Exit 2 prints `NOT DONE` and one reason per line.
 Exit 1 is bad input: a tampered task.json, no git checkout, a review, thinker or resolutions
-file that does not parse, one finding id used by two review files.
+file that does not parse, one finding id used by two review files. The three files are read
+before the test command runs, so a bad file costs no test run and no metered action.
 
 What it does, in order, and stops at the first stage that fails:
 
 1. Budget meter (`budget.py`). An exceeded cap ends the task; nothing else runs.
 2. Scope guard, dependency guard, and an empty-diff test. All three report together.
-3. The frozen `test_command`, in repo_root, through the shell, with the minutes left on the
+3. review-<n>.json, thinker.json and resolutions.jsonl are read. A file that does not parse
+   stops the check here, before anything is spent.
+4. The frozen `test_command`, in repo_root, through the shell, with the minutes left on the
    cap as its timeout. The run is written down as a `command` evidence record (exit code,
    duration, the last 2000 characters of output) and an `exec` journal line, so it costs one
    action. A run that writes files into the working tree changes the diff and is not done.
-4. Findings and Thinker tests, against resolutions.jsonl.
+5. Findings and Thinker tests, against resolutions.jsonl.
 
 The sha is sha256 over `git diff --binary <start_commit>` plus the bytes of every untracked
 file outside `AGI_Research/`. A new file is part of what is certified; the state folder is
@@ -35,6 +38,7 @@ never. Any later edit gives a new sha, so the DONE line belongs to exactly one d
 ## Reasons and what happens next
 | line | what the Supervisor does |
 |---|---|
+| `<file> does not parse` / `finding <n> needs an id and a severity ...` (exit 1, on stderr, before the tests run) | fix the file and run check again; no test run was spent |
 | `budget: exceeded <cap> (<spent>/<cap>)` | stop; report the meter line from budget.py and what was not finished |
 | `outside:`, `over:`, `verifier-edit:` | the scope guard's lines; `references/tiers.md` says what each means |
 | `unresolved dependency: <name>` | the dependency guard's line; `references/deps.md` says how to close it |
