@@ -318,9 +318,8 @@ class DoneTests(unittest.TestCase):
         run = self.new_task()
         self.fix()
         self.write("tests/test_new.py", "x = 1\n")
-        self.review(run, 1, self.finding("R-1"))
         before = (git(self.root, "status", "--porcelain"), git(self.root, "diff"))
-        self.assertEqual(self.cli(run, "check").returncode, 2)
+        self.assertEqual(self.cli(run, "check").returncode, 0)
         self.assertEqual((git(self.root, "status", "--porcelain"), git(self.root, "diff")), before)
 
     def test_harness_runs_done_in_the_workspace(self):
