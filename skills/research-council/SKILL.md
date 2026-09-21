@@ -100,7 +100,12 @@ Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrie
    provider charges remain unmetered, not a claim that the work was free.
 4. **Evidence and claims.** Read `references/evidence.md`. Every time a source is seen, run
    `scripts/evidence.py add --run <run> --from -` with the exact excerpt and a locator; the
-   script refuses a record without one. Every assertion goes through
+   script refuses a record without one. After each `E-n recorded` line run
+   `scripts/judge.py run --run <run> --battery evidence --id E-n`: it says who published the
+   page, how much it says about the unknowns, and whether the excerpt carries text addressed
+   to an AI agent. You still write the claim's `limitations` yourself and compare afterwards;
+   nothing it prints changes a record, and it skips entirely until the workspace opt-in file
+   names the product. Every assertion goes through
    `scripts/claims.py add --run <run> --from -` naming its evidence ids; an unknown id is
    exit 1 and nothing is written. After each `C-n recorded` line run
    `scripts/judge.py run --run <run> --battery claim --id C-n` and read `references/judge.md`:

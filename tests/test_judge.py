@@ -46,8 +46,8 @@ def explode(*args, **kwargs):
     raise AssertionError("the adapter was called")
 
 
-class JudgeTests(unittest.TestCase):
-    """S-52: the seam, the claim battery and shadow mode."""
+class Case:
+    """A workspace holding one goal and one opt-in file, plus the helpers both batteries use."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -63,11 +63,12 @@ class JudgeTests(unittest.TestCase):
         data["budget"].update(budget)
         return data
 
-    def opt_in(self, root):
+    def opt_in(self, root, **extra):
         path = root / judge.OPT_IN
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({"enabled_by": "A Reviewer", "date": "2026-09-21",
-                                    "terms_read": True}), encoding="utf-8")
+        body = {"enabled_by": "A Reviewer", "date": "2026-09-21", "terms_read": True}
+        body.update(extra)
+        path.write_text(json.dumps(body), encoding="utf-8")
 
     def claim(self, statement=STATEMENT, excerpt=EXCERPT, scope="public", uri="https://example.org/docs"):
         evidence.add(self.run, {"source_type": "web", "source_uri": uri, "title": "Booking docs",
@@ -103,6 +104,10 @@ class JudgeTests(unittest.TestCase):
     def listing(self):
         return {str(p.relative_to(self.run)): hashlib.sha256(p.read_bytes()).hexdigest()
                 for p in sorted(self.run.rglob("*")) if p.is_file()}
+
+
+class JudgeTests(Case, unittest.TestCase):
+    """S-52: the seam, the claim battery and shadow mode."""
 
     # --- the stops, in the order judge.py takes them -------------------------------------
 
@@ -274,18 +279,18 @@ class JudgeTests(unittest.TestCase):
     def test_without_fitted_thresholds_every_answered_decision_is_unsure(self):
         self.assertIsNone(judge.BATTERIES["claim"]["fitted"])
         self.assertIsNone(judge.BATTERIES["claim"]["thresholds"])
-        self.assertEqual(judge.decide({"supported": 0.99, "contradicted": 0.0,
-                                       "wider": 0.0, "inferred": 0.0}, None), "unsure")
+        self.assertEqual(judge.decide("claim", {"supported": 0.99, "contradicted": 0.0,
+                                               "wider": 0.0, "inferred": 0.0}, None), "unsure")
 
     def test_decide_reads_the_four_answers_the_way_the_spec_writes_it(self):
         bands = {name: {"low": 0.2, "high": 0.8}
                  for name in ("supported", "contradicted", "wider", "inferred")}
         clean = {"supported": 0.9, "contradicted": 0.05, "wider": 0.1, "inferred": 0.1}
-        self.assertEqual(judge.decide(clean, bands), "yes")
-        self.assertEqual(judge.decide({**clean, "supported": 0.15}, bands), "no")
-        self.assertEqual(judge.decide({**clean, "contradicted": 0.85}, bands), "no")
-        self.assertEqual(judge.decide({**clean, "wider": 0.85}, bands), "no")
-        self.assertEqual(judge.decide({**clean, "inferred": 0.5}, bands), "unsure")
+        self.assertEqual(judge.decide("claim", clean, bands), "yes")
+        self.assertEqual(judge.decide("claim", {**clean, "supported": 0.15}, bands), "no")
+        self.assertEqual(judge.decide("claim", {**clean, "contradicted": 0.85}, bands), "no")
+        self.assertEqual(judge.decide("claim", {**clean, "wider": 0.85}, bands), "no")
+        self.assertEqual(judge.decide("claim", {**clean, "inferred": 0.5}, bands), "unsure")
 
     # --- bad input ------------------------------------------------------------------------
 
@@ -348,6 +353,148 @@ class JudgeTests(unittest.TestCase):
         self.assertLess(text.index("scripts/claims.py add"),
                         text.index("scripts/judge.py run --run <run> --battery claim"))
         self.assertIn("references/judge.md", text)
+
+
+class EvidenceBatteryTests(Case, unittest.TestCase):
+    """S-55: the evidence battery, shadow only."""
+
+    def setUp(self):
+        super().setUp()
+        self.opt_in(self.root, product="the booking service", vendor="Booking Ltd",
+                    vendor_hosts=["booking.example"], partner_hosts=["reseller.example"])
+
+    def page(self, uri="https://independent.example/report", scope="public", excerpt=EXCERPT):
+        record = evidence.add(self.run, {"source_type": "web", "source_uri": uri,
+                                         "title": "Holding slots in practice",
+                                         "locator": "Section 3", "excerpt": excerpt,
+                                         "access_scope": scope})
+        return record["evidence_id"]
+
+    # --- the host rule, which answers strength with no call --------------------------------
+
+    def test_a_vendor_host_is_answered_from_the_list_with_no_call(self):
+        self.page(uri="https://booking.example/docs/holds")
+        result = self.cli("run", "--run", self.run, "--battery", "evidence", "--id", "E-1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "judge: evidence E-1 vendor (rule: host)")
+        record = self.records()[0]
+        self.assertEqual(record["decision"], "vendor")
+        self.assertEqual(record["adapter"], "rule")
+        self.assertEqual(record["cost_usd"], 0.0)
+        self.assertEqual(record["answers"], {})
+        self.assertEqual(len(self.judged()), 1)
+
+    def test_a_subdomain_of_a_partner_host_is_answered_from_the_list(self):
+        self.page(uri="https://shop.reseller.example/booking")
+        line, record = judge.run_battery(self.run, "evidence", "E-1", opener=explode)
+        self.assertEqual(line, "judge: evidence E-1 partner (rule: host)")
+        self.assertEqual(record["decision"], "partner")
+
+    def test_a_host_on_neither_list_is_asked_and_stays_unsure(self):
+        self.page()
+        result = self.cli("run", "--run", self.run, "--battery", "evidence", "--id", "E-1",
+                          "--adapter", "fake", "--fake-answers", FAKES / "page-independent.json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "judge: evidence E-1 unsure")
+        record = self.records()[0]
+        self.assertEqual(record["answers"], {"strength": "independent", "relevance": 3,
+                                             "instruction": 0.9})
+        self.assertEqual(record["mode"], "shadow")
+        self.assertEqual(self.judged()[0]["cost_usd"], 0.0000313)
+
+    # --- the stops this battery adds -------------------------------------------------------
+
+    def test_without_a_product_the_battery_is_skipped(self):
+        self.opt_in(self.root)
+        self.page()
+        line, record = judge.run_battery(self.run, "evidence", "E-1", opener=explode)
+        self.assertEqual(line, "judge: evidence E-1 skipped: no product")
+        self.assertIsNone(record)
+        self.assertEqual(self.records(), [])
+        self.assertEqual(self.judged(), [])
+
+    def test_a_private_page_never_reaches_the_adapter(self):
+        self.page(scope="private")
+        with self.with_key():
+            line, record = judge.run_battery(self.run, "evidence", "E-1", opener=explode)
+        self.assertEqual(line, "judge: evidence E-1 skipped: egress private E-1")
+        self.assertIsNone(record)
+        self.assertEqual(self.records(), [])
+
+    # --- the state, and the answers it accepts ----------------------------------------------
+
+    def test_the_state_carries_the_page_and_the_goal_only(self):
+        self.page()
+        state, cited = judge.build_evidence_state(self.run, "E-1", judge.settings(self.root))
+        self.assertEqual(sorted(state), ["goal", "page"])
+        self.assertEqual(sorted(state["page"]), ["excerpt", "title", "uri"])
+        self.assertEqual(state["goal"]["product"], "the booking service")
+        self.assertEqual(state["goal"]["vendor"], "Booking Ltd")
+        self.assertEqual(state["goal"]["unknowns"], goal.load(self.run)["unknowns"])
+        self.assertNotIn("access_scope", json.dumps(state))
+        self.assertNotIn("sha256", json.dumps(state))
+        self.assertEqual([r["evidence_id"] for r in cited], ["E-1"])
+
+    def test_an_option_outside_the_battery_is_a_skipped_line(self):
+        self.page()
+        line, record = judge.run_battery(self.run, "evidence", "E-1", adapter="fake",
+                                         fake_answers=FAKES / "page-bad-option.json")
+        self.assertEqual(line,
+                         "judge: evidence E-1 skipped: adapter answer is not one of the "
+                         "options: 'sponsor'")
+        self.assertIsNone(record)
+        self.assertEqual(self.judged(), [])
+
+    def test_a_level_outside_the_scale_is_a_skipped_line(self):
+        self.page()
+        line, record = judge.run_battery(self.run, "evidence", "E-1", adapter="fake",
+                                         fake_answers=FAKES / "page-bad-level.json")
+        self.assertEqual(line,
+                         "judge: evidence E-1 skipped: adapter answer is not a level from 1 "
+                         "to 3: 7")
+        self.assertIsNone(record)
+
+    # --- what it may never do ----------------------------------------------------------------
+
+    def test_the_evidence_battery_never_gates(self):
+        bands = {name: {"low": 0.2, "high": 0.8} for name in ("strength", "relevance",
+                                                              "instruction")}
+        answers = {"strength": "vendor", "relevance": 3, "instruction": 0.99}
+        self.assertEqual(judge.decide("evidence", answers, bands), "unsure")
+        self.assertIsNone(judge.BATTERIES["evidence"]["fitted"])
+        self.assertIsNone(judge.BATTERIES["evidence"]["thresholds"])
+
+    def test_the_evidence_record_is_untouched_by_a_decision(self):
+        self.page(uri="https://booking.example/docs/holds")
+        before = (self.run / "evidence.jsonl").read_bytes()
+        judge.run_battery(self.run, "evidence", "E-1", opener=explode)
+        self.assertEqual((self.run / "evidence.jsonl").read_bytes(), before)
+
+    # --- bad input, and the wiring around the battery ------------------------------------------
+
+    def test_an_unknown_evidence_id_exits_1(self):
+        self.page()
+        result = self.cli("run", "--run", self.run, "--battery", "evidence", "--id", "E-9")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("unknown evidence_id: E-9", result.stderr)
+        self.assertEqual(self.records(), [])
+
+    def test_questions_prints_the_three_evidence_questions(self):
+        result = self.cli("questions", "--battery", "evidence")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        questions = json.loads(result.stdout)
+        self.assertEqual(sorted(questions), ["instruction", "relevance", "strength"])
+        self.assertEqual(questions["strength"]["type"], "choice")
+        self.assertEqual(sorted(questions["strength"]["criteria"]),
+                         ["independent", "other", "partner", "vendor"])
+        self.assertEqual(questions["relevance"]["type"], "score")
+        self.assertEqual(len(questions["relevance"]["criteria"]), 3)
+        self.assertEqual(questions["instruction"]["type"], "noul")
+
+    def test_the_skill_runs_the_judge_after_an_evidence_record(self):
+        text = SKILL_MD.read_text(encoding="utf-8")
+        self.assertLess(text.index("scripts/evidence.py add"),
+                        text.index("scripts/judge.py run --run <run> --battery evidence"))
 
 
 if __name__ == "__main__":

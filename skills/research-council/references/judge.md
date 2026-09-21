@@ -1,18 +1,22 @@
-# The judge: a second reading of a claim, before the council sees it
+# The judge: a second reading of a claim or a page, before the council sees it
 
-`scripts/judge.py` asks a small closed-answer model (Jev, from TypeSafe AI) four yes/no
-questions about a claim you have just recorded, and prints one line. It is the only place in
+`scripts/judge.py` asks a small closed-answer model (Jev, from TypeSafe AI) a few fixed
+questions about a record you have just written, and prints one line. It is the only place in
 this repository that talks to that model.
 
 n8n analogy: one HTTP Request node behind a Switch, with a Skip branch that is today's path.
 The thresholds live in a Set node, not in the HTTP node, and until somebody fills that Set
 node in, every item takes the Skip branch. Nothing downstream changes.
 
-## What it is for
+## The two batteries
 
-Reflection already objects to a claim the excerpts do not support, but Reflection runs one
-council round later. The judge reads the same claim at the moment it is recorded, so the
-Supervisor can fix the record while the source is still open.
+| battery | subject | what it asks | what it is for |
+|---|---|---|---|
+| `claim` | a claim id, `C-7` | four yes/no questions: do the excerpts say this, does one of them say the opposite, does the claim reach wider than they do, is it a conclusion rather than something written | Reflection already objects to a claim the excerpts do not support, but it runs one council round later. The judge reads the claim at the moment it is recorded, while the source is still open |
+| `evidence` | an evidence id, `E-3` | who published the page (vendor, partner, independent, other), how much it says about the goal's unknowns (1 to 3), and whether the excerpt carries text addressed to an AI agent | source strength is prose you write into a claim's `limitations` by hand, and the 2026-09-21 self-run's meta-review found six records where it was wrong. The judge gives a second opinion to compare against |
+
+The evidence battery gates nothing and never will: it cannot drop a record, change a strength
+or stop a fetch. Its answers are data you read beside your own.
 
 ## What it never does
 
@@ -29,11 +33,26 @@ Supervisor can fix the record while the source is still open.
 
 ```bash
 python3 scripts/judge.py run --run AGI_Research/runs/<goal_id> --battery claim --id C-7
-python3 scripts/judge.py questions --battery claim        # the four questions, for calibration
+python3 scripts/judge.py run --run AGI_Research/runs/<goal_id> --battery evidence --id E-3
+python3 scripts/judge.py questions --battery claim        # the questions, for calibration
 ```
 
-Run it right after `scripts/claims.py add` prints `C-n recorded`. Skip it entirely when the
-run's goal forbids paid calls: no script can read that prose, so it is your call.
+Run the claim battery right after `scripts/claims.py add` prints `C-n recorded`, and the
+evidence battery right after `scripts/evidence.py add` prints `E-n recorded`. Skip both
+entirely when the run's goal forbids paid calls: no script can read that prose, so it is your
+call.
+
+The evidence battery needs four fields you write into `.research-council/judge.json` at goal
+time, beside the three the opt-in file already carries:
+
+```json
+{"enabled_by": "<who>", "date": "<when>", "terms_read": true,
+ "product": "the thing being researched", "vendor": "the company that makes it",
+ "vendor_hosts": ["example.com"], "partner_hosts": ["reseller.example"]}
+```
+
+`product` is the only one the battery cannot run without. The two host lists are a shortcut,
+not a requirement: a page on a listed host is answered from the list with no call at all.
 
 ## The one line it prints
 
@@ -43,6 +62,8 @@ run's goal forbids paid calls: no script can read that prose, so it is your call
 | `judge: claim C-7 no (rule: number 91.49 not in any excerpt)` | a number in the statement is in none of the cited excerpts. Decided in code, no call was made | fix the number or cite the excerpt that carries it |
 | `judge: claim C-7 no` | the model's probabilities cross a calibrated threshold | fix the claim or its evidence, then record it again |
 | `judge: claim C-7 yes` | the excerpts look like they support it | nothing. This is not verification |
+| `judge: evidence E-3 vendor (rule: host)` | the page's host is on the opt-in file's own vendor or partner list. Decided in code, no call was made | nothing; it agrees with the list you wrote |
+| `judge: evidence E-3 unsure` | the model answered; the answers are in `judge.jsonl` for you to read against your own `limitations` | nothing changes a record |
 | `judge: claim C-7 skipped: <reason>` | nothing was sent and nothing was written | carry on; the reasons are below |
 
 ## Why it skipped
@@ -51,6 +72,7 @@ run's goal forbids paid calls: no script can read that prose, so it is your call
 |---|---|
 | `not enabled` | the run folder is not `<root>/AGI_Research/runs/<id>`, or the workspace has no `.research-council/judge.json` naming who enabled it, when, and that the terms were read |
 | `budget` | a cap is already exceeded, the dollar cap is 0, or one more action would pass the action cap |
+| `no product` | the evidence battery only: the opt-in file names no product, and the questions are about a page relative to one |
 | `egress private E-3` | a cited record is not marked `public` |
 | `egress address` / `egress phone` / `egress key` / `egress home path` | the assembled state matched a pattern that must not leave the machine |
 | `size` | the state is over 60000 characters, well under the model's own limit |
@@ -69,7 +91,7 @@ measured cost, written *before* the judge record, so a call that happened is nev
 
 ## Thresholds
 
-There are none yet. `fitted` is `None` in `scripts/judge.py`, so every answered decision is
+There are none yet, and the evidence battery is never getting any. `fitted` is `None` in `scripts/judge.py`, so every answered decision is
 `unsure` whatever the probabilities say. Thresholds arrive only from a calibration on labelled
 cases, reported on a held-out split with its n. A probability is not a decision: answers jitter
 by about ±0.02 between runs, so 0.5 is a knife edge, not a default.
