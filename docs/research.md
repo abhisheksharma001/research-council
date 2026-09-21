@@ -108,3 +108,35 @@ line in place.
 **Review:** Abhishek decides; the rule is his.
 **Status:** open
 **Answer:**
+
+### R-8 — What shape does a Jev noul answer arrive in?
+
+**Where:** jev seam, `docs/spec-jev.md` S-52 · `scripts/judge.py` `probability` · `answers[<name>]`
+**Find out:** whether `answers["supported"]` is the probability itself or an object carrying it
+under `noul`. The two readers in the jev skill disagree:
+`~/.claude/skills/jev/scripts/calibrate.py:147` uses `answers[c["id"]]["answers"][name]` as a
+number, while `~/.claude/skills/jev/scripts/optimize_questions.py:69` reads
+`answers[c["id"]]["answers"][name]["noul"]`. If the wrong one is assumed, a decision is made on
+a dictionary compared as a number, or a probability is never found at all.
+**Confidence:** low — no live response has been seen in this repository, and the only two
+sources available contradict each other. `scripts/judge.py` therefore accepts both shapes and
+raises on anything else, so an unexpected body prints `skipped: adapter ...` and the run
+proceeds on today's path instead of on a wrong decision.
+**Review:** answered by the first live call in S-53; the response body is pasted into this flag.
+**Status:** open
+**Answer:**
+
+### R-9 — How often does the phone-number pattern stop an ordinary technical excerpt?
+
+**Where:** jev seam, `docs/spec-jev.md` S-52 · `scripts/judge.py` `EGRESS` · pattern `phone`
+**Find out:** the share of this repository's own claims whose assembled state matches
+`\+?\d[\d\s().-]{8,}\d`. That pattern is deliberately broad, and a run of digits, spaces, dots
+and dashes is also what a version list, a benchmark table or a date range looks like. A high
+share means the guard is not protecting anything in practice, it is simply turning the judge
+off, and the pattern should be narrowed to digit runs that are not separated by other words.
+**Confidence:** medium that some false stops exist; none measured, because no cases file exists
+yet. A false stop is safe in the egress direction: it prints `skipped` and the run proceeds.
+**Review:** none. The `cases` exporter in S-53 prints how many records each guard excluded, so
+the number is a by-product of the step that already has to run.
+**Status:** open
+**Answer:**
