@@ -10,7 +10,8 @@ objections.json (optional, saved from the Reflection role) and the spend line fr
 heading or gloss from this file, or text copied from one of those records. Nothing
 is summarised, inferred, or reworded.
 
-FINDINGS.md sections: What you asked; What we found; Disputed; Unverified; Superseded; How sure;
+FINDINGS.md sections: What you asked; What we found; Unreviewed (objections file unreadable),
+only when there is one; Disputed; Unverified; Superseded; How sure;
 What we tried that did not work; What is still unknown; What to build now; Spend.
 HANDOFF.md sections: Goal; Chosen approach (with the Elo table); Acceptance;
 Files likely touched; Must not.
@@ -18,7 +19,10 @@ Files likely touched; Must not.
 A claim with no evidence ids appears only under "Unverified" (CLAUDE.md invariant 2).
 A claim superseded by a later claim (claims.py supersede) appears only under "Superseded".
 A claim named in `claim_ids` of an objection with `blocking: true` appears only under
-"Disputed" (S-17, bug 5); a missing or unreadable objections.json is said in one fixed line.
+"Disputed" (S-17, bug 5); a missing objections.json is said in one fixed line. An objections.json
+that exists but cannot be read as objections leaves "What we found" empty and lists those claims
+under "Unreviewed (objections file unreadable)", which is what the JSON handoff already says
+(S-48, bug 23); the line names the first objection that could not be read and why.
 Exit 0 ok, 1 when goal.json is missing or tampered.
 """
 import argparse
@@ -90,6 +94,12 @@ def _sources(run, strict=False):
     return g, ev, cl, hyps, sparks
 
 
+def _bad_note(where, exc):
+    """The bad-file line, naming the first thing that could not be read and why."""
+    reason = f"missing key {exc}" if isinstance(exc, KeyError) else str(exc) or type(exc).__name__
+    return f"{FIXED['bad_objections_file']} First problem in {where}: {reason}."
+
+
 def _review_records(run):
     path = Path(run) / OBJECTIONS
     if not path.exists():
@@ -99,7 +109,10 @@ def _review_records(run):
         if not isinstance(items, list):
             raise ValueError("objections must be a list")
         known_claims = {c["claim_id"] for c in claims.read(run)}
-        for obj in items:
+    except (ValueError, KeyError, TypeError) as exc:
+        return [], _bad_note("the file", exc)
+    for index, obj in enumerate(items):
+        try:
             if not isinstance(obj, dict) or type(obj["blocking"]) is not bool:
                 raise ValueError("blocking must be JSON true or false")
             if not claims._str_list(obj["claim_ids"]) or set(obj["claim_ids"]) - known_claims:
@@ -107,8 +120,8 @@ def _review_records(run):
             for key in ("id", "resolve_with"):
                 if not claims._nonempty_str(obj[key]):
                     raise ValueError(f"objection {key} must be a non-empty string")
-    except (ValueError, KeyError, TypeError):
-        return [], FIXED["bad_objections_file"]
+        except (ValueError, KeyError, TypeError) as exc:
+            return [], _bad_note(f"objection {index}", exc)
     return items, None
 
 
@@ -124,11 +137,17 @@ def _blocking(items):
 def objections(run):
     """(blocking objections by claim_id, fixed note or None).
 
-    Missing file -> ({}, no_objections_file). Malformed file -> ({}, bad_objections_file).
+    Missing file -> ({}, no_objections_file). Malformed file -> ({}, bad_objections_file plus the
+    first objection that could not be read and why).
     Blocking only; a claim under several blocking objections keeps all of them.
     """
     items, note = _review_records(run)
     return _blocking(items), note
+
+
+def _unreadable(note):
+    """True when objections.json exists but could not be read as objections."""
+    return note is not None and note != FIXED["no_objections_file"]
 
 
 def _claim_groups(records, blocked):
@@ -170,6 +189,9 @@ def findings(run):
     groups = _claim_groups(cl, blocked)
     superseded, disputed, verified, unverified = (groups[key] for key in
                                                  ("superseded", "disputed", "evidence_backed", "unverified"))
+    unreviewed = []
+    if _unreadable(note):
+        unreviewed, verified = verified, []
     out = [f"# Findings for goal {g['goal_id']} (revision {g['revision']})", ""]
     out += ["## What you asked", "", g["request_text"], "", f"Wanted: {g['desired_outcome']}", ""]
     out += ["## What we found", "", FIXED["found_intro"], ""]
@@ -179,6 +201,9 @@ def findings(run):
             out += [f"**{c['claim_id']}** {c['statement']} Evidence: {refs}.", ""]
     else:
         out += [NONE, ""]
+    if unreviewed:
+        out += ["## Unreviewed (objections file unreadable)", "", note, ""]
+        out += _bullets([f"{c['claim_id']} {c['statement']}" for c in unreviewed]) + [""]
     out += ["## Disputed", "", FIXED["disputed_intro"], ""]
     if note:
         out += [note, ""]

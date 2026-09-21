@@ -18,6 +18,7 @@ REPORT_SCRIPT = ROOT / "scripts" / "report.py"
 FIXTURE = ROOT / "tests" / "fixtures" / "run_min"
 REPORT_MD = ROOT / "skills" / "research-council" / "references" / "report.md"
 UNVERIFIED_STATEMENT = "The upstream API also had an outage that morning."
+UNREVIEWED = "Unreviewed (objections file unreadable)"
 
 
 def sections(text):
@@ -241,11 +242,12 @@ class ReportTests(unittest.TestCase):
         self.assertIn(report.FIXED["no_objections_file"], sec["Disputed"])
         self.assertIn("**C-2**", sec["What we found"])
 
-    def test_malformed_objections_file_is_one_fixed_line_and_ignored(self):
+    def test_malformed_objections_file_is_one_fixed_line_and_stops_findings(self):
         (self.run / "objections.json").write_text('{"objections": [{"id": "O-9"}]}', encoding="utf-8")
         sec = sections(report.findings(self.run))
         self.assertIn(report.FIXED["bad_objections_file"], sec["Disputed"])
-        self.assertIn("**C-2**", sec["What we found"])
+        self.assertNotIn("**C-2**", sec["What we found"])
+        self.assertIn("C-2", sec[UNREVIEWED])
         (self.run / "objections.json").write_text("not json", encoding="utf-8")
         self.assertIn(report.FIXED["bad_objections_file"], sections(report.findings(self.run))["Disputed"])
 
@@ -253,7 +255,34 @@ class ReportTests(unittest.TestCase):
         self.block("C-2", blocking="true")
         sec = sections(report.findings(self.run))
         self.assertIn(report.FIXED["bad_objections_file"], sec["Disputed"])
-        self.assertIn("**C-2**", sec["What we found"])
+        self.assertNotIn("**C-2**", sec["What we found"])
+
+    def test_unreadable_objections_file_leaves_findings_empty_and_names_the_objection(self):
+        self.block("C-2", blocking="true")  # lands at index 1; the fixture already holds O-1
+        sec = sections(report.findings(self.run))
+        self.assertNotIn("**C-2**", sec["What we found"])
+        self.assertIn(report.NONE, sec["What we found"])
+        self.assertIn("C-2", sec[UNREVIEWED])
+        self.assertIn("objection 1", sec[UNREVIEWED])
+        self.assertIn("blocking must be JSON true or false", sec[UNREVIEWED])
+        self.assertNotIn("C-2", sec["How sure"])
+        self.assertEqual(report.structured_handoff(self.run)["findings"], [])
+
+    def test_unreadable_objections_note_names_the_offending_objection_not_the_first(self):
+        self.block("C-1")                   # valid, index 1
+        self.block("C-2", blocking="true")  # the bad one, index 2
+        note = sections(report.findings(self.run))[UNREVIEWED]
+        self.assertIn("objection 2", note)
+        self.assertNotIn("objection 1", note)
+
+    def test_unreadable_objections_file_names_the_file_when_the_json_itself_is_bad(self):
+        (self.run / "objections.json").write_text("not json", encoding="utf-8")
+        note = sections(report.findings(self.run))[UNREVIEWED]
+        self.assertIn("First problem in the file", note)
+
+    def test_readable_objections_file_has_no_unreviewed_section(self):
+        self.block("C-2")
+        self.assertNotIn(UNREVIEWED, sections(report.findings(self.run)))
 
     def test_disputed_lines_stay_traceable_and_claims_file_untouched(self):
         before = (self.run / "claims.jsonl").read_bytes()
