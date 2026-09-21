@@ -411,3 +411,20 @@ Abhishek selected agent apps first, deferred the Paperclip-specific connection, 
 | S-35 | locally verified 2026-09-10; not pushed or merged | All 47 goal/budget tests pass. Eight new regression tests failed on the old code; four targeted tests failed again with finite-value/cost validation disabled in memory, then all 47 passed with the real code. This covers CLI input, direct append, legacy bad records, non-finite revisions, and overflowed totals. No cap was changed and null remains explicitly unmetered. |
 | S-33 | locally verified 2026-09-10; not pushed or merged | 30 runtime tests and 16 role/procedure tests pass. Exported CLI fixtures complete all four roles without worker file writes; retrieval dependencies import successfully. Removed budget, request-id, snapshot, schema, folder-change, lock, and atomic-output guards caused targeted tests to fail; real code passed afterward. A rating-update case proves stale-input rejection independently of the folder fence. The review's claimed initial-status bypass did not reproduce; non-open initial states are rejected. Locks carry owner metadata and fail closed after a hard crash until inspected, with no unsafe timeout takeover. |
 | S-34 | locally verified 2026-09-10; not pushed or merged | 304 local tests and four skill validators pass on Python 3.11.15; 46 report tests cover the old Markdown contract and new read-only JSON path. Removing classification, review-state, reference, strict-input, excerpt-hash and duplicate-id guards produced expected failures; restored code passed afterward. The real self-run exports as two superseded, six unreviewed and one unverified claim, with no action authority, correctly exposing its missing saved review. Final static review found an unknown-objection-reference mismatch between formats; shared validation and a failing-then-passing test fixed it. Version 0.2.0 is a local candidate only. No new remote CI, Python 3.12 run, live Codex/Paperclip test or paid model benchmark. |
+
+## Installable from GitHub (2026-09-21)
+
+### S-45 — The repo is its own marketplace, so two commands install the plugin
+**PR:** one.
+**Depends on:** S-1.
+**Files:** `.claude-plugin/marketplace.json`, `tests/test_marketplace.py`, `README.md`.
+**Today:** The only way to load the plugin is `claude --plugin-dir <clone>` on every session start. `claude plugin install` cannot find it because the repo has no marketplace catalog, so an agent that needs research-council (mystandard section 11b) cannot install it by itself.
+**Change:** Add `.claude-plugin/marketplace.json`: marketplace name `research-council`, one plugin entry named as in `.claude-plugin/plugin.json`, `source` `./` (the plugin lives at the repo root). No version in the catalog; the version stays in `plugin.json` alone so the two cannot drift. README Install leads with the two install commands and keeps the clone route as the no-install option. A test reads both JSON files and the README.
+**Acceptance:** WHEN `claude plugin marketplace add abhisheksharma001/research-council` and then `claude plugin install research-council@research-council` are run on a machine without the plugin THEN `claude plugin list` SHALL show `research-council@research-council`.
+**Verify:** `python3 -m unittest tests.test_marketplace -v` → 4 pass; `claude plugin validate .` → passes; after merge, the two install commands, then `claude plugin list`.
+**Must not:** move or rename `plugin.json`, any skill, agent or script; add a dependency; put a version in the catalog; change what the plugin does.
+
+## Install status
+
+| step | state | learned |
+|---|---|---|
