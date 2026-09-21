@@ -102,7 +102,11 @@ Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrie
    `scripts/evidence.py add --run <run> --from -` with the exact excerpt and a locator; the
    script refuses a record without one. Every assertion goes through
    `scripts/claims.py add --run <run> --from -` naming its evidence ids; an unknown id is
-   exit 1 and nothing is written. Before writing findings run
+   exit 1 and nothing is written. After each `C-n recorded` line run
+   `scripts/judge.py run --run <run> --battery claim --id C-n` and read `references/judge.md`:
+   a `skipped` or an `unsure` line changes nothing, and only a `no` asks you to fix the claim
+   or its evidence before going on. Skip the judge when the goal's prohibited actions forbid
+   paid calls; no script can read that prose. Before writing findings run
    `scripts/claims.py list --run <run> --unverified`: each line printed is reported as
    unverified, never as a finding.
 5. **Council.** Read `references/council.md`. Keep Generation, Reflection, Ranking and

@@ -1,0 +1,7 @@
+{
+  "model": "jev-1.13.0",
+  "input_tokens": 600,
+  "cost_usd": 0.0000252,
+  "answers": {"supported": {"noul": 0.93}, "contradicted": {"noul": 0.01},
+              "wider": {"noul": 0.04}, "inferred": {"noul": 0.06}}
+}
