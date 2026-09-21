@@ -83,8 +83,8 @@ def add(run, body):
     errors = validate(body)
     if errors:
         raise ValueError("\n".join(errors))
-    if not (run / "goal.json").is_file():
-        raise ValueError(f"no goal.json in {run}; run goal.py new first")
+    if not any((run / name).is_file() for name in ("goal.json", "task.json")):
+        raise ValueError(f"no goal.json or task.json in {run}; run goal.py new or task.py new first")
     record = {"evidence_id": next_id([r["evidence_id"] for r in read(run)], ID_PREFIX)}
     record.update({f: body[f] for f in USER_FIELDS})
     record["retrieved_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
