@@ -1,0 +1,360 @@
+# jev decision seam — feature spec
+
+Grilled 2026-09-21. Abhishek: "use it and see how you can implement it to get its max
+potential, and making the current whole system much more better in every possible way, and use
+the fallback (with the llm and baml) if needed", then "make it as per this" (the working
+standard). Answers: only synthetic cases and public evidence records may leave the machine;
+nothing from a client workspace, ever; a paid call is allowed only through one metered script
+and only where the user's dollar cap allows it (D-16); the seam ships in shadow mode and gates
+nothing until a committed calibration report says it may.
+
+Jev is a decision model from TypeSafe AI. It answers typed questions about a piece of text and
+returns a probability with each answer. It cannot write, count, compare dates, or reason in
+steps, and it can be confidently wrong. The method used here is the `jev` skill installed at
+`~/.claude/skills/jev`, whose evidence base is this plugin's own research run of 2026-09-21
+(run 65a47056, 195 evidence records, in the jev skill's own checkout).
+
+n8n analogy: one HTTP Request node behind a Switch, with the Switch's thresholds in a Set node,
+and a third branch that does exactly what the workflow did before.
+
+## Today
+A research run's Supervisor writes a claim, names the evidence ids it rests on, and moves on.
+`scripts/claims.py` checks that those ids exist; nothing checks that the excerpts behind them
+say what the claim says. That check happens one council round later, when the Reflection role
+reads the whole file and writes objections. Across the five readable runs on this machine,
+Reflection raised 62 objections on 191 claims: 25 `provenance` (the excerpt does not state the
+claim), 11 `scope` (the claim is wider than its evidence), 11 `type` (an inference labelled as
+observed), 12 `counterexample`, 3 `stop`. Every one of those is a claim the Supervisor believed
+when it wrote it.
+
+Source strength has the same shape. Whether a page is the vendor's own, a partner's, or
+independent is recorded as free text in a claim's `limitations` field. In the 2026-09-21 run the
+meta-review named this the single most repeated weakness, listing six records whose strength was
+recorded wrongly, plus one private probe recorded as public.
+
+## Instead
+One script, scripts/judge.py, asks a fixed set of literal yes/no questions about a claim and the
+excerpts it cites, and about a page before it becomes an evidence record. It prints one line and
+records one JSON line. In shadow mode, which is where it ships, nothing downstream changes: the
+run proceeds exactly as it does today and the answers accumulate as data. Once a calibration on
+our own labelled cases has met a bar written before the run, gate mode can refuse to let a claim
+be recorded over a confident "no" — and only that direction. A "yes" verifies nothing, ever.
+
+The roles never see any of it. Jev's answers stay out of every role packet and out of the fence
+comparison, so Reflection, Ranking and Meta-review keep working on the same inputs they have
+today, uninfluenced by a first opinion.
+
+## Who runs this
+Same as `## Who runs this` in `docs/spec-v1.md`: an AGI-class model in a tool-capable host. One
+difference: the judge is not a role and not a model the Supervisor prompts. It is a script that
+calls a fixed API with a fixed question set, so its answer cannot be argued with, only measured.
+
+## Evidence this design rests on
+| design rule | why |
+|---|---|
+| Four atomic questions, combined in code, never one broad question | One "is this phishing?" question scored 62.6% and 89.4% in two independent tests; the same judgement decomposed into five atomic questions weighted in code scored 95% |
+| Questions mirror the Reflection rubric one to one | `agents/reflection.md` already defines provenance, type, scope and counterexample; sharing the definition is what makes the objections usable as labels |
+| Numbers are checked in code before any call | Arithmetic, counting and numeric comparison are vendor-documented weak spots; the jev skill's own probe put numeric-inference claims at 0.26-0.36 while textual support scored 0.81-0.98 |
+| No threshold is ever 0.5 by default | Answers jitter about 0.02 between identical runs, so 0.5 is a knife edge; thresholds come from calibration on our cases and are reported on a held-out split |
+| Confidence is not correctness; the middle band goes to the fallback | One independent test found Jev right 64% of the time when it reported 80-95% |
+| Shadow before gating; a "yes" never verifies | CLAUDE.md invariant 2: a claim without an evidence record is unverified. A probability is not an evidence record |
+| Rules and deny-lists first, Jev for the remainder | The vendor documents that state is data and adversarial text can move an answer; the jev skill's deterministic fit check returns GO WITH GUARDS for both batteries and names rules-first as the first pattern |
+| The model id is pinned | `jev-latest` and `jev-preview` both resolved to the dated id on 2026-09-21, but aliases move and a moved alias makes tuned thresholds silently stale |
+
+## Acceptance
+WHEN a research run records a claim in a workspace that has opted in, and a Jev key is present,
+and the run's dollar cap allows it THEN scripts/judge.py SHALL print one line naming the claim
+and one of yes, no, unsure or skipped with its reason, SHALL record the probabilities and the
+measured cost as one `judge` journal line and one judge.jsonl line, and SHALL leave every other
+file in the run folder byte-identical; and WHEN the workspace has not opted in, or no key is set,
+or the dollar cap is zero THEN it SHALL print a skipped line, exit 0, write nothing, and the run
+SHALL proceed exactly as it does today.
+
+## Rules that never change (this seam)
+1. A Jev answer is data. It never changes the goal, the budget, the evaluator, the library, or
+   any recorded claim or evidence record. (CLAUDE.md invariant 3.)
+2. A "yes" verifies nothing. Only a confident "no", and only in gate mode, changes what the
+   Supervisor does, and what it does is fix the record or its evidence.
+3. Nothing but public records and synthetic cases leaves the machine. A record whose
+   `access_scope` is not `public` stops the call before any request body is built. No client
+   workspace opts in.
+4. Every call is metered: one journal line of kind `judge` carrying the measured cost, written
+   before the judge record, so a call that happened is never unlogged. (CLAUDE.md invariant 4.)
+5. Thresholds come from a calibration on labelled cases, reported on a held-out split with n.
+   No script defines a threshold, and `fitted: None` means shadow mode whatever the flags say.
+6. The roles never see judge output. It stays out of every council packet and out of the fence.
+7. The seam is one file with one network call site; a second adapter is how the plugin leaves,
+   not a rewrite.
+
+## Deliberately not here
+- Replacing the Reflection, Ranking or Meta-review roles. Pairwise judging of complex outputs is
+  a measured bad fit, and a rating never verifies a claim (`skills/research-council/SKILL.md`).
+- Any judgement that turns on arithmetic, counting or a date comparison. Those stay in code.
+- Triage's five booleans. They fit, but five decisions per run is not worth a dependency.
+- The code-writer-council batteries (finding severity, expected_small). Parked as S-56 until the
+  dry run of `docs/spec-code-council.md` S-44 has produced review files to label.
+- BAML as a dependency (D-13). Its one useful idea, repairing a loosely formatted reply against a
+  declared schema, is reimplemented in the standard library as S-57 if a step needs it.
+- Any second provider, any gateway, any client-facing use.
+
+## Layout (planned)
+```
+scripts/judge.py                                  the seam: batteries, adapters, egress guard, decision
+skills/research-council/references/judge.md       what the Supervisor runs and what each line means
+.research-council/judge.json                      per-workspace opt-in: who enabled it, when, terms read
+tests/test_judge.py, tests/fixtures/judge/        offline tests; the jev adapter is never called
+```
+Run output: `judge.jsonl` beside `journal.jsonl` in the run folder, one line per decision.
+
+Shared, already present: `scripts/budget.py`, `scripts/journal.py`, `scripts/fence.py`,
+`scripts/harness.py`, `scripts/claims.py`, `scripts/evidence.py`, `scripts/goal.py`.
+
+## The batteries
+Question names are not sent to the model, so every word the model needs is in the instructions
+and the criteria. One judgement per question; they are combined in code.
+
+### claim
+| name | type | instructions | true means | false means |
+|---|---|---|---|---|
+| supported | noul | The `evidence` excerpts state what the `claim.statement` says. | At least one excerpt contains the same fact as the statement, in the same words or a paraphrase with the same meaning. | No excerpt contains the fact: the excerpts are about something else, or say less than the statement. |
+| contradicted | noul | An `evidence` excerpt says the opposite of the `claim.statement`. | An excerpt asserts a fact that cannot be true at the same time as the statement. | No excerpt disagrees with the statement, including excerpts that are silent about it. |
+| wider | noul | The `claim.statement` or `claim.scope` claims more than the excerpts show. | The statement generalises to more systems, people, time periods, conditions or products than the excerpts describe. | The statement stays within what the excerpts describe, or is narrower. |
+| inferred | noul | The `claim.statement` is a conclusion drawn from the excerpts rather than something an excerpt says. | Reaching the statement needs a reasoning step, a comparison, or combining two excerpts. | An excerpt says the statement directly. |
+
+State: `{"claim": {"statement", "scope", "claim_type"}, "evidence": [{"id", "uri", "locator", "excerpt"}]}`.
+Decision in code: `no` when supported is at or below its low threshold, or contradicted is at or
+above its high threshold, or wider is at or above its high threshold; `yes` when supported is at
+or above its high threshold and the other three are at or below their low thresholds; otherwise
+`unsure`. Calibration costs: a missed unsupported claim counts three times a false alarm on
+`supported`, one to one on the rest.
+
+### evidence
+| name | type | instructions | options or levels |
+|---|---|---|---|
+| strength | choice | Who published the `page`, relative to `goal.product`? | vendor: the company that makes goal.product, on its own site, docs, blog or an account that speaks for it · partner: an integrator, reseller, framework or platform that sells or bundles goal.product · independent: a person or organisation with no commercial tie to goal.product visible on the page · other: cannot tell from the page |
+| relevance | score | How much does the `page` say about the `goal.unknowns`? | 1 does not address any listed unknown · 2 background on an unknown, without a measurement or a first-hand report · 3 a measurement, a first-hand result, or a primary-source fact about a listed unknown |
+| instruction | noul | The `page.excerpt` contains text addressed to an AI agent, assistant or tool, telling it what to do. | true: sentences that command an automated reader, such as ignore previous instructions, you are now, call this tool, output the following · false: ordinary prose, code samples, or instructions written for human readers |
+
+State: `{"page": {"uri", "title", "excerpt"}, "goal": {"unknowns", "product", "vendor"}}`.
+Hosts on the opt-in file's vendor or partner list answer `strength` from the rule, with no call.
+
+## The bar, written before any result
+TPR at least 0.90 on unsupported claims, at TNR at least 0.85 on supported ones, with at least 20
+eval cases in each class. Below the bar, the lever order is: rewrite the questions from the
+training misses, then several questions voting with fitted weights, then a cascade whose accuracy
+is always reported together with the share escalated. A lever that does not help is a result and
+is published as one.
+
+## Steps
+
+### S-48 — report.py: an unreadable objections file stops the findings, not just the JSON
+**PR:** one.
+**Depends on:** S-47.
+**Research:** none.
+**Files:** `scripts/report.py`, `tests/test_report.py`, `docs/bugs.md` (row 23 state), `docs/spec-v1.md` (S-34 status note).
+**Today:** `scripts/report.py` `_review_records` catches a parse error and returns the fixed note
+`bad_objections_file`. The JSON handoff then moves every evidence-backed claim into `unreviewed`
+and empties `findings`, but FINDINGS.md still prints those same claims under "What we found",
+including ones a blocking objection had disputed. One file, two behaviours.
+**Change:** when the bad-file note is returned, FINDINGS.md prints the claims under a heading
+"Unreviewed (objections file unreadable)" carrying the note, and "What we found" is empty, which
+is what the JSON already says. The note names the index of the first offending objection and the
+reason taken from the caught exception, instead of a bare "could not be read".
+**Acceptance:** WHEN objections.json holds one objection whose `blocking` is the string `"true"`
+THEN FINDINGS.md SHALL list no claim under "What we found", SHALL name the offending objection
+under "Unreviewed", and the JSON `findings` list SHALL be empty.
+**Verify:** `python3 -m unittest tests.test_report -v` passes; delete the new heading branch and
+exactly one test fails; `git checkout -- scripts/report.py` restores it.
+**Must not:** change `scripts/council.py`; accept a malformed file as valid; edit objections.json.
+
+### S-49 — done.py: read the review files before running the tests
+**PR:** one.
+**Depends on:** S-47.
+**Research:** none.
+**Files:** `scripts/done.py`, `tests/test_done.py`, `skills/code-writer-council/references/done.md`, `docs/bugs.md` (row 24 state).
+**Today:** `scripts/done.py` `check` runs the frozen test command, writes a `command` evidence
+record and an `exec` journal line, and only then parses review-<n>.json, thinker.json and
+resolutions.jsonl. A finding whose severity is anything but blocking or advisory raises there, so
+the check exits 1 with no NOT DONE line after a full test run has been spent.
+**Change:** call the three readers above the test run. A malformed file still exits 1 as bad
+input, but before any test run, evidence record or journal line. The reasons table in
+`skills/code-writer-council/references/done.md` gains one row saying so.
+**Acceptance:** WHEN review-1.json holds a finding with severity `critical` THEN `done.py check`
+SHALL exit 1 and evidence.jsonl SHALL hold no `command` record from that check.
+**Verify:** `python3 -m unittest tests.test_done -v` passes; move the readers back below the test
+run and exactly one test fails.
+**Must not:** change what any exit code means; accept a severity outside blocking and advisory.
+
+### S-50 — done.py: a fixed resolution must match the diff being called done
+**PR:** one.
+**Depends on:** S-47, and R-7 answered in `docs/research.md`.
+**Research:** R-7.
+**Files:** `scripts/done.py`, `tests/test_done.py`, `skills/code-writer-council/references/done.md`, `docs/bugs.md` (row 25 state).
+**Today:** `scripts/done.py` checks that a `fixed` resolution's `diff_sha` is 64 hex characters
+and never compares it with the diff it is about to call done, so an edit that undoes the fix
+still passes with the old resolution line standing.
+**Change:** in `check`, a finding resolution whose `how` is `fixed` and whose `diff_sha` differs
+from the sha computed before the test run yields the reason
+`stale resolution: <id> (diff changed since the fix; run done.py resolve --fixed again)`. Waived
+lines are untouched. `skills/code-writer-council/references/done.md` says to resolve fixed
+findings last, after the final edit.
+**Acceptance:** WHEN a finding was resolved with `--fixed` and any tracked file changes afterwards
+THEN `done.py check` SHALL print `NOT DONE` with `stale resolution: <id>` and exit 2.
+**Verify:** `python3 -m unittest tests.test_done -v` passes; remove the comparison and exactly one
+test fails.
+**Must not:** compare waived lines; let the model type a sha.
+
+### S-51 — shared plumbing: a judge kind, a fence skip, a harness entry
+**PR:** one.
+**Depends on:** S-47.
+**Research:** none.
+**Files:** `scripts/journal.py`, `scripts/fence.py`, `scripts/harness.py`, `skills/research-council/references/budget.md`, `tests/test_budget.py`, `tests/test_fence.py`, `tests/test_harness.py`.
+**Today:** `journal.py add --kind judge` exits 1, so a Jev call cannot be metered. `fence.py`
+skips only journal.jsonl when it compares the run folder before and after a spawn, so a judge
+record written while a role is out would read as a violation — and `scripts/council.py` calls the
+same comparison inside `accept`, so the reply would be refused too.
+**Change:** add `"judge"` to `KINDS` in `scripts/journal.py` and to the usage line above it; add
+`"judge.jsonl"` to `SKIP` in `scripts/fence.py` and to its docstring; add `"judge"` to
+`RUNTIME_SCRIPTS` in `scripts/harness.py`; add the new kind to the table in
+`skills/research-council/references/budget.md`. `scripts/budget.py` needs no change: it counts
+actions from `journal.ACTION_KINDS`, which is derived from `KINDS`.
+**Acceptance:** WHEN `journal.py add --run <run> --kind judge --cost_usd 0.00002 --detail x` runs
+THEN it SHALL exit 0 and `budget.py check` SHALL report one more action and $0.00002 more spend,
+and WHEN judge.jsonl is written between `fence.py snapshot` and `fence.py check --role reflection`
+THEN the check SHALL exit 0.
+**Verify:** `python3 -m unittest tests.test_budget tests.test_fence tests.test_harness -v` passes
+(there is no tests/test_journal.py; the journal's own tests live in `tests/test_budget.py`);
+remove judge.jsonl from `SKIP` and exactly one test fails. Because `harness.py` raises when a
+listed script is missing, S-52 follows immediately.
+**Must not:** change any cap or default; add a key to a council packet
+(`tests/test_council_runtime.py` pins the ranking packet's keys).
+
+### S-52 — judge.py: the seam, the claim battery, shadow mode
+**PR:** one.
+**Depends on:** S-51.
+**Research:** R-4 answered; R-1 must be answered before the jev adapter is ever pointed at the
+live API, which this step does not do.
+**Files:** scripts/judge.py, skills/research-council/references/judge.md, `skills/research-council/SKILL.md`, .research-council/judge.json, tests/test_judge.py, tests/fixtures/judge/.
+**Today:** nothing reads a claim against its excerpts between `claims.py add` and the Reflection
+spawn.
+**Change:** scripts/judge.py, standard library only, in this repository's script style: a usage
+docstring like `scripts/scope.py`, sibling imports through `sys.path`, argparse subcommands, and
+ValueError or OSError printed to stderr with exit 1.
+Subcommands: `run --run <run> --battery claim --id C-n [--adapter jev|fake --fake-answers <path>]
+[--mode shadow|gate]`, and `questions --battery claim` which prints the questions object for the
+calibration tool. The battery definitions are module constants, not files (R-4).
+Order inside `run`, each stop printing `judge: claim C-n skipped: <reason>` and exiting 0 without
+writing anything: the run folder is not `<root>/AGI_Research/runs/<id>`; no
+.research-council/judge.json in the workspace root carrying `enabled_by`, `date` and
+`terms_read: true`; `budget.py` reports the run exceeded, or a zero dollar cap, or one more action
+over the action cap; any record the state would carry has an `access_scope` other than `public`;
+the assembled state matches an address, a run of digits long enough to be a phone number, a
+key-shaped token or a home directory path; the state is longer than 60000 characters; no
+`TYPESAFE_API_KEY` in the environment; the adapter raised. Before the adapter is called, every
+number in the statement is looked for in the cited excerpts, and a missing one prints
+`judge: claim C-n no (rule: number <n> not in any excerpt)` with no call, which is the rule
+`agents/reflection.md` already gives the Reflection role.
+On a call: write the journal line first, then append the judge record, inside one try, so a call
+that happened is never unlogged. Print exactly one line. Exit 0 in shadow mode whatever the
+decision; exit 1 for bad input, including `--mode gate` in this step, which is not wired until
+S-54.
+`skills/research-council/SKILL.md` gains two sentences in the claims stage: after `claims.py add`
+prints its `C-n recorded` line, run the judge on that id; a skipped or unsure line changes
+nothing; skip the judge entirely when the run's goal record forbids paid calls. judge.md explains
+each printed line in plain English, with the n8n analogy and the outage behaviour.
+**Acceptance:** WHEN `TYPESAFE_API_KEY` is unset THEN judge.py SHALL print
+`judge: claim C-1 skipped: no key`, exit 0, and write no journal line and no judge record; and
+WHEN a cited record has `access_scope: private` THEN it SHALL print `skipped: egress private E-n`,
+exit 0, and build no request body; and WHEN the fake adapter answers supported 0.05 with no fitted
+thresholds THEN the judge record SHALL carry `"decision": "unsure"` and the journal SHALL hold one
+`judge` line with the adapter's cost; and WHEN a number in the statement appears in no excerpt
+THEN it SHALL print a `no` line naming that number with no adapter call.
+**Verify:** `python3 -m unittest tests.test_judge -v` passes;
+`python3 scripts/validate_skill.py skills/research-council` prints OK; remove the egress check and
+exactly one test fails; remove the no-key stop and exactly one test fails.
+**Must not:** reach the network in any test (the jev adapter is exercised with a stubbed opener);
+write into claims.jsonl, evidence.jsonl or goal.json; define any threshold; run without the
+opt-in file; write the judge record before the journal line.
+
+### S-53 — cases from our own runs, and the first calibration
+**PR:** one.
+**Depends on:** S-52, and R-1 answered.
+**Research:** R-1, R-2, R-3, R-5.
+**Files:** scripts/judge.py, tests/test_judge.py, tests/fixtures/judge/synthetic-claims.jsonl, docs/runs/<date>-jev-claim-calibration.md, `docs/research.md`.
+**Today:** no labelled cases exist, so every decision is unsure and no threshold can be defended.
+**Change:** a `cases --battery claim --runs <run>... --out <path>` subcommand writes one JSON
+object per line, `{"id": "<first 8 of the run id>-C-n", "state": {...}, "labels": {...}}`, through
+the same egress guard, printing how many records it excluded and why. A claim is a positive only
+if Reflection demonstrably read it: the sha256 recorded in the run's fence/reflection.json must
+match a line-prefix of claims.jsonl, and where the fence folder is missing the fallback is every
+id at or below the highest id any objection in that run names. Claims carrying `superseded_by` are
+excluded. Negatives come from the objections: `provenance` means supported 0, `scope` means wider
+1, `type` means inferred 1, `counterexample` means contradicted 1. Thirty hand-written hard
+negatives are appended from the fixture: a changed number, the right words about the wrong
+entity, a paraphrase that flips the polarity, an instruction quoted inside an excerpt. Then,
+outside the repository, the jev skill's calibration tool fits thresholds on the training split
+and reports the held-out split; if the bar is missed, its own optimiser writes a packet of
+training misses, one rewrite is made, and its compare command referees. The fitted thresholds and
+a `fitted` block naming the eval n and the date are committed into scripts/judge.py, and the run
+note records eval n per class, the share of eval cases from each run, the synthetic share, TPR and
+TNR, the unsure share, the model id the API returned, who labelled the cases, and the spend.
+**Acceptance:** WHEN the calibration note is read THEN it SHALL state eval n per class, TPR and
+TNR on the held-out split, the unsure share and the model id the API returned; and WHEN fewer than
+20 eval cases exist for any class THEN the committed `fitted` block SHALL stay empty and gate mode
+SHALL stay refused.
+**Verify:** `python3 -m unittest tests.test_judge -v` passes with the exporter run against fixture
+runs; the case count printed by the exporter matches the lines in the output file.
+**Must not:** tune on the held-out split; send any private or client record; store the key in any
+file; spend more than $0.10 without asking again.
+
+### S-54 — gate mode, in the demoting direction only
+**PR:** one.
+**Depends on:** S-53 with thresholds fitted.
+**Research:** R-2 answered.
+**Files:** scripts/judge.py, `skills/research-council/SKILL.md`, skills/research-council/references/judge.md, tests/test_judge.py.
+**Today:** every decision is shadow; a confident no changes nothing.
+**Change:** `--mode gate` exits 2 on a confident no, printing the probabilities that produced it,
+and exits 1 when no thresholds are fitted or the adapter is the fake one.
+`skills/research-council/SKILL.md`: on exit 2, fix the claim or its evidence and run it again;
+never record a claim over a confident no; unsure proceeds and Reflection decides; after each run,
+compare the judge records with objections.json and turn every disagreement into a new case.
+**Acceptance:** WHEN no thresholds are fitted THEN `--mode gate` SHALL exit 1 naming the missing
+calibration; and WHEN supported falls at or below its low threshold with fitted thresholds THEN it
+SHALL exit 2 printing that probability.
+**Verify:** `python3 -m unittest tests.test_judge -v` passes; remove the fitted check and exactly
+one test fails.
+**Must not:** let a yes verify anything; edit or delete a claim; show judge records to any role.
+
+### S-55 — the evidence battery, shadow only
+**PR:** one.
+**Depends on:** S-52.
+**Research:** none; labels accumulate in shadow.
+**Files:** scripts/judge.py, `skills/research-council/SKILL.md`, skills/research-council/references/judge.md, tests/test_judge.py.
+**Today:** source strength is prose in a claim's `limitations` field, and the 2026-09-21 run's
+meta-review found six records whose strength was recorded wrongly.
+**Change:** the evidence battery above, with the product name, the vendor name and the vendor and
+partner host lists read from the opt-in file, filled in by the Supervisor at goal time.
+`skills/research-council/SKILL.md` says to run the judge on each recorded evidence id; the
+Supervisor still writes `limitations` itself, and compares afterwards.
+**Acceptance:** WHEN the page's host is on the vendor list THEN the printed line SHALL be
+`judge: evidence E-n vendor (rule: host)` with no adapter call; and WHEN the fake adapter returns
+0.9 for instruction THEN the judge record SHALL carry it and the printed line SHALL end `unsure`.
+**Verify:** `python3 -m unittest tests.test_judge -v` passes; the four skill validators print OK.
+**Must not:** gate on any answer; drop or alter an evidence record.
+
+### S-56 — parked: the code-writer-council battery
+Opens when the dry run of `docs/spec-code-council.md` S-44 has produced review files to label.
+A task record carries no access scope, so the workspace opt-in file is the only switch, and a
+client repository never has one.
+
+### S-57 — optional: repair.py, schema-aligned normalisation of a role's reply
+The one useful BAML idea without the dependency (D-13). A lossless pass before `scripts/council.py`
+and `scripts/done.py` validate a reply: strip code fences, parse with control characters allowed,
+case-fold the enum values those scripts compare exactly, and coerce the strings "true" and "false"
+to booleans. Every repair is journaled as a note; no field is ever invented; a reply that parses
+cleanly is untouched. Fixes bug 28. Dropped if the queue stays on the seam.
+
+## Status
+| step | state | learned |
+|---|---|---|
+| S-47 | done 2026-09-21 (PR #49) | The step numbering had to start at S-48, not S-46: `docs/spec-v1.md` already registers S-45 and S-46, and a register is per body of work, not per file touched, so the three bug fixes live here beside the seam steps even though two of them are code-council files (the precedent is S-37, registered in `docs/spec-code-council.md` while changing `scripts/budget.py` and `scripts/journal.py`). Two claims in the plan were wrong against the code and were corrected before they reached this file: `scripts/budget.py` needs no change for a new journal kind, because it counts actions from `journal.ACTION_KINDS`, which is derived from `KINDS`; and `skills/research-council/SKILL.md` has no "any paid API call" sentence to reword, so D-16 names where the prohibition actually lives. The working standard says CI enforces that a backticked path exists, and in this repository nothing does: the check was run by hand here and caught five planned names written with backticks. A test for it is worth a step. | |
