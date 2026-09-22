@@ -29,6 +29,7 @@ FILES = {
     ".github/workflows/ci.yml": "on: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n",
     "run_tests.sh": "# runs the suite\nset -e\npython3 -m unittest \\\n  --failfast\n",
     "tests/fixtures/schema.sql": "-- seed rows\nSELECT 1;\n",
+    "tests/fixtures/cases.tbl": "# a case table\n-- not a comment here\n",
     "tests/helper_test.c": "/* checks\n * continued\n */\nint main(void) { return 0; }\n",
     ".gitignore": "AGI_Research/\n",
 }
@@ -206,6 +207,14 @@ class ScopeTests(unittest.TestCase):
         git(self.root, "checkout", "--", "tests/fixtures/schema.sql")
         self.drop_line("tests/helper_test.c", "* continued")
         self.assertEqual(self.cli(run).returncode, 0)
+        git(self.root, "checkout", "--", "tests/helper_test.c")
+        self.drop_line("tests/fixtures/cases.tbl", "# a case table")
+        self.assertEqual(self.cli(run).returncode, 0)
+        self.drop_line("tests/fixtures/cases.tbl", "-- not a comment here")
+        r = self.cli(run)
+        self.assertEqual(r.returncode, 2)
+        self.assertEqual(r.stdout,
+                         "verifier-edit: tests/fixtures/cases.tbl: removed line: -- not a comment here\n")
 
     def test_ci_config_and_test_command_files_are_verifiers(self):
         run = self.new_task(allowed_paths=[".github/**", "run_tests.sh"], test_command="bash run_tests.sh")
