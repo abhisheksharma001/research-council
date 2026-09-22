@@ -94,10 +94,10 @@ def added_by_file(patch, untracked):
     return out
 
 
-def defines(name, lines):
+def defines(name, path, lines):
     """True when a non-comment line holds `name` followed by `(`: a definition or a call, not a mention."""
     pattern = re.compile(rf"(?<![\w.]){re.escape(name)}\s*\(")
-    return any(pattern.search(line) for line in lines if not scope.is_comment(line))
+    return any(pattern.search(line) for line in lines if not scope.is_comment(line, path))
 
 
 def run_tests(root, command, timeout):
@@ -245,10 +245,11 @@ def check(run, now=None):
         if tier >= 2 and st["caps"]["max_subagents"] >= 2:
             reasons.append(f"thinker: no {THINKER} for a tier {tier} diff")
     else:
-        added = [lines for path, lines in added_by_file(patch, untracked).items()
+        added = [(path, lines) for path, lines in added_by_file(patch, untracked).items()
                  if scope.is_verifier(path, t["test_command"])]
         reasons += [f"missing test: {tid} {name}" for tid, name in tests.items()
-                    if not any(defines(name, lines) for lines in added) and ("test", tid) not in done]
+                    if not any(defines(name, path, lines) for path, lines in added)
+                    and ("test", tid) not in done]
     return (None, reasons) if reasons else (sha, [])
 
 

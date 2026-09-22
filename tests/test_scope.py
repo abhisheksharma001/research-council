@@ -27,7 +27,9 @@ FILES = {
     "tests/test_triage.py": TEST_FILE,
     "README.md": "# demo\n",
     ".github/workflows/ci.yml": "on: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n",
-    "run_tests.sh": "set -e\npython3 -m unittest\n",
+    "run_tests.sh": "set -e\npython3 -m unittest \\\n  --failfast\n",
+    "tests/fixtures/schema.sql": "-- seed rows\nSELECT 1;\n",
+    "tests/helper_test.c": "/* checks\n * continued\n */\nint main(void) { return 0; }\n",
     ".gitignore": "AGI_Research/\n",
 }
 
@@ -184,6 +186,23 @@ class ScopeTests(unittest.TestCase):
         r = self.cli(run)
         self.assertEqual(r.returncode, 2)
         self.assertEqual(r.stdout, "verifier-edit: tests/test_new.py: added 'expectedfailure' marker: @unittest.expectedFailure\n")
+
+    def test_a_comment_prefix_belongs_to_the_files_language(self):
+        run = self.new_task(allowed_paths=["tests/**", "run_tests.sh"], test_command="bash run_tests.sh")
+        self.drop_line("run_tests.sh", "--failfast")
+        r = self.cli(run)
+        self.assertEqual(r.returncode, 2)
+        self.assertEqual(r.stdout, "verifier-edit: run_tests.sh: removed line: --failfast\n")
+        git(self.root, "checkout", "--", "run_tests.sh")
+        self.drop_line("tests/fixtures/schema.sql", "-- seed rows")
+        self.assertEqual(self.cli(run).returncode, 0)
+        self.drop_line("tests/fixtures/schema.sql", "SELECT 1;")
+        r = self.cli(run)
+        self.assertEqual(r.returncode, 2)
+        self.assertEqual(r.stdout, "verifier-edit: tests/fixtures/schema.sql: removed line: SELECT 1;\n")
+        git(self.root, "checkout", "--", "tests/fixtures/schema.sql")
+        self.drop_line("tests/helper_test.c", "* continued")
+        self.assertEqual(self.cli(run).returncode, 0)
 
     def test_ci_config_and_test_command_files_are_verifiers(self):
         run = self.new_task(allowed_paths=[".github/**", "run_tests.sh"], test_command="bash run_tests.sh")

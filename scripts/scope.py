@@ -15,6 +15,11 @@ and `git status --porcelain` (new untracked files). Prints one line per violatio
                                        with a skip or expected-failure marker; silenced only
                                        by allow_verifier_edits: true in task.json
 
+A comment is decided by the file's own language: `#` in Python, shell and YAML, `//` and `/*` in
+the C family, `--` in SQL, `<!--` in HTML and Markdown, and `#` or `//` when the extension is
+unknown. So a removed `--flag` line of a shell verifier is a real removed line, and a removed
+`-- seed` line of a SQL one is not.
+
 With no violation prints `tier: 1|2|3` and `lines: <n>` (tiers.md holds the table).
 Files under AGI_Research/ are the council's own state, never part of the task's diff.
 
@@ -34,7 +39,22 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import task  # noqa: E402
 
 STATE_PREFIX = "AGI_Research/"
-COMMENT_STARTS = ("#", "//", "/*", "*", "--")
+HASH = ("#",)
+C_LIKE = ("//", "/*", "*")
+DASH = ("--",)
+MARKUP = ("<!--",)
+COMMENT_STARTS = {
+    ".py": HASH, ".sh": HASH, ".bash": HASH, ".zsh": HASH, ".rb": HASH, ".pl": HASH, ".r": HASH,
+    ".yml": HASH, ".yaml": HASH, ".toml": HASH, ".cfg": HASH, ".ini": HASH, ".mk": HASH, ".tf": HASH,
+    ".c": C_LIKE, ".h": C_LIKE, ".cc": C_LIKE, ".cpp": C_LIKE, ".hpp": C_LIKE, ".java": C_LIKE,
+    ".js": C_LIKE, ".jsx": C_LIKE, ".mjs": C_LIKE, ".cjs": C_LIKE, ".ts": C_LIKE, ".tsx": C_LIKE,
+    ".go": C_LIKE, ".rs": C_LIKE, ".cs": C_LIKE, ".swift": C_LIKE, ".kt": C_LIKE, ".php": C_LIKE,
+    ".scala": C_LIKE, ".css": C_LIKE, ".scss": C_LIKE, ".less": C_LIKE,
+    ".sql": DASH, ".lua": DASH, ".hs": DASH,
+    ".html": MARKUP, ".xml": MARKUP, ".md": MARKUP, ".vue": MARKUP,
+}
+COMMENT_NAMES = {"makefile": HASH, "dockerfile": HASH, "justfile": HASH}
+FALLBACK_COMMENT_STARTS = ("#", "//")
 WEAKENING_MARKERS = ("skip", "xfail", "expectedfailure", "xit(", "xdescribe(", ".only(", "@ignore", "@disabled")
 TIERS = ((10, 1), (100, 2))
 
@@ -79,19 +99,28 @@ def is_verifier(path, test_command):
             or parts[0] == ".github" or path in test_command)
 
 
-def is_comment(line):
+def comment_starts(path):
+    """The comment prefixes of the file's own language; a common pair when the name is unknown."""
+    posix = PurePosixPath(path)
+    suffix = posix.suffix.lower()
+    if suffix in COMMENT_STARTS:
+        return COMMENT_STARTS[suffix]
+    return COMMENT_NAMES.get(posix.name.lower(), FALLBACK_COMMENT_STARTS)
+
+
+def is_comment(line, path):
     stripped = line.strip()
-    return not stripped or stripped.startswith(COMMENT_STARTS)
+    return not stripped or stripped.startswith(comment_starts(path))
 
 
-def verifier_reasons(added, removed):
+def verifier_reasons(added, removed, path):
     """Reasons a change to a verifier file weakens it. Comment and blank lines never count."""
     reasons = []
     for line in removed:
-        if not is_comment(line):
+        if not is_comment(line, path):
             reasons.append(f"removed line: {line.strip()}")
     for line in added:
-        if not is_comment(line):
+        if not is_comment(line, path):
             low = line.lower()
             hits = [m for m in WEAKENING_MARKERS if m in low]
             if hits:
@@ -155,7 +184,8 @@ def check(run):
             violations.append(f"outside: {path}")
         if not t.get("allow_verifier_edits") and is_verifier(path, t["test_command"]):
             added, removed = (untracked_lines(root, path), []) if untracked else diff_lines(root, t["start_commit"], path)
-            violations += [f"verifier-edit: {path}: {reason}" for reason in verifier_reasons(added, removed)]
+            violations += [f"verifier-edit: {path}: {reason}"
+                           for reason in verifier_reasons(added, removed, path)]
     if lines > t["max_diff_lines"]:
         violations.append(f"over: {lines}/{t['max_diff_lines']} lines")
     return violations, lines

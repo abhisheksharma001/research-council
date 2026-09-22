@@ -383,6 +383,60 @@ test fails; drop the `(` and match the bare name → the new test fails;
 framework; touch `scope.py`'s markers or comment prefixes (bug 27 is its own step); let a
 `--waived` test start failing.
 
+### S-59 — scope.py: a comment prefix is decided by the file's language
+
+**PR:** one.
+**Depends on:** S-47.
+**Research:** none.
+**Files:** `scripts/scope.py`, `scripts/done.py`, `tests/test_scope.py`, `tests/test_done.py`,
+`skills/code-writer-council/references/tiers.md`, `docs/bugs.md` (row 27).
+**Today:** `scripts/scope.py` holds one comment-prefix list for every file:
+`("#", "//", "/*", "*", "--")`. A removed line is only a real removed line when it starts with
+none of them, so in a shell or Python verifier a removed `--maxfail=1` continuation line and a
+removed `*args,` line are both read as comments and the verifier-edit guard stays silent
+(bug 27, first half). The same list is what `scripts/done.py` asks about an added line.
+**Change:** replace the single tuple with a map from file extension to that language's comment
+starts — `#` for Python, shell, YAML, TOML and the other hash languages, `//`, `/*` and `*` for
+the C family and CSS, `--` for SQL, Lua and Haskell, `<!--` for HTML, XML and Markdown — plus a
+small map for the extensionless names that appear in a `test_command` (`Makefile`, `Dockerfile`)
+and the fallback `("#", "//")` for an extension the map does not know. `is_comment(line, path)`
+and `verifier_reasons(added, removed, path)` take the path, and `scripts/done.py` passes the path
+it already attributes each added line to. Nothing else about the guard changes: blank lines are
+still never real lines, and the weakening markers are untouched (they are S-60).
+**Acceptance:** WHEN a removed line of a shell verifier file starts with `--` THEN
+`scope.py check` SHALL print `verifier-edit: <path>: removed line: <line>` and exit 2, and WHEN a
+removed line of a `.sql` verifier file starts with `--` THEN it SHALL print no violation for that
+line.
+**Verify:** `python3 -m unittest tests.test_scope tests.test_done -v` → pass; put the old single
+tuple back → the new test fails; `python3 -m unittest discover -s tests` → OK.
+**Must not:** change `WEAKENING_MARKERS` or how a marker is matched (bug 27's second half is
+S-60); change what `is_verifier` accepts; make a blank line a real line; add a language whose
+prefixes were not read from that language's own syntax.
+
+### S-60 — scope.py: a weakening marker is matched as a token, not a substring
+
+**PR:** one.
+**Depends on:** S-59.
+**Research:** none.
+**Files:** `scripts/scope.py`, `tests/test_scope.py`,
+`skills/code-writer-council/references/tiers.md`, `docs/bugs.md` (row 27).
+**Today:** `verifier_reasons` lowercases an added line and asks `m in low` for each of
+`WEAKENING_MARKERS`, so `skip` matches `skipped`, `skipping`, `skip_list` and any identifier that
+contains it: an added line `results = [r for r in rows if not r.skipped]` is reported as a
+weakening marker (bug 27, second half).
+**Change:** match each word-shaped marker (`skip`, `xfail`, `expectedfailure`, `@ignore`,
+`@disabled`) on a word boundary, and keep the call-shaped ones (`xit(`, `xdescribe(`, `.only(`)
+as they are, since their trailing `(` already ends them. The printed reason keeps its wording, so
+`references/tiers.md` gains only the sentence that a marker is matched as a whole word.
+**Acceptance:** WHEN an added line of a verifier file contains `skipped` inside a longer word and
+no marker of its own THEN `scope.py check` SHALL print no `verifier-edit` line for it, and WHEN
+the added line contains `@unittest.skip(` THEN it SHALL still print
+`added 'skip' marker: <line>`.
+**Verify:** `python3 -m unittest tests.test_scope -v` → pass; put the substring test back → the
+new test fails; `python3 -m unittest discover -s tests` → OK.
+**Must not:** drop or add a marker; change the printed reason's wording; touch the comment
+prefixes (S-59 owns them).
+
 ## Status
 | step | state | learned |
 |---|---|---|
@@ -393,3 +447,4 @@ framework; touch `scope.py`'s markers or comment prefixes (bug 27 is its own ste
 | S-52 | done 2026-09-21 (PR #53) | The step listed `.research-council/judge.json` among its files and it was not written. That file asserts that a named person read TypeSafe's current terms, which is R-1 and is unanswered, so filling it in would have been a fabricated attestation about a third party's legal terms rather than a missing line of code; its absence is the flag-off state this spec's own Acceptance describes, and it lands with S-53, which already depends on R-1. The `"judge"` entry in `scripts/harness.py` that S-51 could not carry arrived here, as planned, in the commit that created the script. Proof-by-breaking does not give one failure per guard when a guard has two independent halves: removing the whole egress check failed 3 tests, the private-record loop alone 1, the pattern loop alone 2. That pass also found a real hole the committed suite could never show, because the guard in front of it always returned first: with the no-key stop deleted, the CLI test for it opened a socket to the vendor. The fix is in the test helper, not the script, which is the honest place for it: `TYPESAFE_BASE_URL` points at the discard port, so a guard removed by hand is refused locally. Writing the adapter raised R-8, a low-confidence flag with no way to resolve it offline: the jev skill's own `calibrate.py` and `optimize_questions.py` read the same answer field as two different shapes, so `probability` accepts both and raises on anything else, turning an unknown body into a skipped line instead of a wrong decision. No retry loop was written; an error is already a skipped line onto today's path, and untested retry code under a "never reach the network" Must-not would be dead weight, so it belongs with the step that first meets the live API. |
 | S-55 | done 2026-09-21 (PR #54) | Shipped out of register order, and the order turned out to be a default rather than a constraint: S-53 and S-54 both wait on R-1, S-55 depends only on S-52, which is already merged, so it was the one step that could be done today. `strength` is a choice and `relevance` a score, the first questions in this repository that are not noul, and `probability` from S-52 reads a number only; `answer_value` had to be written and it opened R-10 at low confidence, because no script here and none in the jev skill reads a choice or a score answer at all. The answer was to validate against the battery's own four options and own three levels, so a shape nobody has seen is a skipped line rather than a source strength written from a guess. `decide` was claim-shaped: it indexes `answers["supported"]` directly, so passing it the battery name was the smallest change that keeps the evidence battery from ever gating, and that is now pinned by a test instead of by a comment. The step text names no `no product` stop, but all three questions are phrased relative to `goal.product`, `goal.json` carries no product field at all, and an empty one would have the model answer a different question confidently; adding the stop is the honest reading of "read from the opt-in file, filled in by the Supervisor at goal time". Proof-by-breaking gave 2, 1, 1, 1 and 1: the host rule fails two tests because vendor and partner are separate, and a third test that also uses a vendor host survives the rule's removal for an honest reason, since `evidence.jsonl` stays untouched down the skip path too. The shared `setUp` in `tests/test_judge.py` became a `Case` mixin rather than a base class, because subclassing `JudgeTests` would have re-run all 28 claim tests under the evidence class. |
 | S-58 | done 2026-09-22 (PR #58) | The step is two narrowings, and only both together close the hole: `added_text` joined every added line and every untracked file into one string, so the name had to be attributed to a file before a filter could mean anything. Attributing it needs the patch's own `+++ b/<path>` headers, which is why the old helper could not simply be filtered. `scope.is_verifier` and `scope.is_comment` were already written for the scope guard and are reused here, so the two scripts cannot drift on what a test file or a comment is. The first draft of the new test put the decoy in `notes/`, and the scope guard refused the whole diff before the thinker check ran (`outside: notes/test_big_verdict.md`): a decoy has to live inside `allowed_paths` or it tests the wrong guard. The lookbehind `(?<![\w.])` is what makes `helper_test_big_verdict(` not count. What this does not close: a docstring line in a verifier file holding the name with parentheses still counts, because `is_comment` reads line starts only, and `.github/**` is a verifier by `is_verifier`. Both are deliberate forgeries rather than accidents, and the tighter rule — the name defined in the file `thinker.json` itself names — needs `file` to become a required field, which is a schema change and its own step. Suite 492 → 493. |
+| S-59 | done 2026-09-22 (PR #TBD) | Bug 27 is two independent defects in one file, so it is two steps: this one is the half that fails open. The single prefix list was not merely imprecise, it was unsound in both directions — `--` and `*` hid real removed lines in shell and Python verifiers, and dropping them outright would have made a genuine SQL or C comment a removed line instead. Only a per-language map fixes both, which is why the constant became a dict and `is_comment` took a path. `scripts/done.py` had to change in the same PR because `defines` calls `scope.is_comment`: the signature is the coupling, and S-58 had already attributed every added line to its file, so the path was there to pass. The fallback for an unknown extension is `("#", "//")` rather than the old union, because a verifier-edit line is a warning the user can silence with `allow_verifier_edits` while a missed one is silent, so the guard leans to over-reporting. Free consequences of reading the language: `#include` in a `.c` verifier and `#` headings in a `.md` one are now real lines, and `.gitignore` falls to the fallback where `#` is right anyway. The fixture change is the test: `run_tests.sh` gained a `--failfast` continuation line, which the old code read as a comment. Suite 493 → 494. |
