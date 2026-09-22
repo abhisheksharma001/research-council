@@ -33,6 +33,10 @@ in `comparisons.jsonl` may be drawn again — that is a rematch, and both result
 `record` refuses an unknown pair, a pair already recorded, and an empty judgment, and
 writes nothing on refusal. Scores: win 1, draw 0.5, loss 0; K = 16.
 
+The winner is read case-insensitively with surrounding punctuation ignored, so a Ranking reply
+saying `a` or `Draw.` is recorded rather than discarded, and `comparisons.jsonl` always stores
+`A`, `B` or `draw`. Anything that names none of the three is still refused with nothing written.
+
 ## Reading the result
 ```bash
 python3 scripts/rank.py table  --run <run>    # ratings, highest first, with comparison counts

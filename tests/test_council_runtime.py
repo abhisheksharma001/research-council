@@ -106,6 +106,17 @@ class CouncilRuntimeTests(unittest.TestCase):
         self.assertEqual(before, (self.run / rank.HYPOTHESES).read_bytes())
         self.assertEqual(len(rank._jsonl(self.run / rank.COMPARISONS)), 1)
 
+    def test_a_ranking_reply_is_not_refused_for_the_case_of_its_winner(self):
+        self.generate()
+        packet = council.prepare(self.run, "ranking", seed=7)
+        reply = {"pair_id": packet["input"]["pair"]["pair_id"], "winner": "a",
+                 "judgment": "Fixture comparison, not verification."}
+        council.accept(self.run, packet["request_id"], reply)
+        stored = rank._jsonl(self.run / rank.COMPARISONS)
+        self.assertEqual(len(stored), 1)
+        self.assertEqual(stored[0]["winner"], "A")
+        self.assertEqual(stored[0]["winner_id"], stored[0]["a"])
+
     def test_meta_text_is_stored_not_executed(self):
         self.generate()
         packet = council.prepare(self.run, "meta-review")

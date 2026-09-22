@@ -612,6 +612,38 @@ drop the fence strip → the new fence test fails; `python3 -m unittest discover
 or id; relax `MAX_REPLY`, the goal or input fingerprint checks, or the fence check; case-fold
 anything other than the recommendation token; touch `scripts/rank.py` (S-66 owns it).
 
+### S-66 — rank.py: the winner is one of three values however it is capitalised
+
+**PR:** one.
+**Depends on:** S-65.
+**Research:** none.
+**Files:** `scripts/rank.py`, `tests/test_rank.py`,
+`skills/research-council/references/rank.md`, `docs/bugs.md` (row 28).
+**Today:** `record` tests `winner not in SCORE`, whose keys are `A`, `B` and `draw`, so `a`, `Draw`
+and `draw.` are refused (bug 28, rank half). The CLI is reached through
+`--winner ... choices=sorted(SCORE)` and refuses the same values at argparse, but the path that
+matters is `scripts/council.py` `accept`, which passes a Ranking role's `reply["winner"]` straight
+into `record`: a reply worth a whole spawn is discarded for a capital letter, and the reservation
+is not refunded. S-65 made the meta-review reply tolerant of its own formatting; this is the same
+defect in the one enum a Ranking reply carries.
+**Change:** `record` resolves the winner to the `SCORE` key it names, comparing case-folded with
+surrounding punctuation stripped, and raises the same message as today for anything that resolves
+to none of the three. The canonical key is what goes into `comparisons.jsonl`, unlike S-65's
+verbatim text: a three-member enum has a correct spelling and every later reader — `SCORE[winner]`,
+`winner_id`, `cycles` and the report — indexes it by that spelling, so storing `a` would move the
+defect downstream instead of fixing it. The CLI takes the same resolver as its argument `type`, so
+`--winner a` reaches argparse's `choices` already canonical. `references/rank.md` says the winner is
+read case-insensitively and stored canonically.
+**Acceptance:** WHEN a Ranking reply gives `"winner": "a"` THEN `council.py accept` SHALL record the
+comparison with `winner` `A` and exit 0, and WHEN it gives `"winner": "Draw."` THEN the stored
+winner SHALL be `draw` with `winner_id` null, and WHEN it gives `"winner": "maybe"` THEN `record`
+SHALL still raise and write no comparison line.
+**Verify:** `python3 -m unittest tests.test_rank tests.test_council_runtime -v` → pass; compare the
+winner exactly again → the new test fails; `python3 -m unittest discover -s tests` → OK.
+**Must not:** add a fourth winner value; change the Elo arithmetic or `winner_id`; accept a winner
+that resolves to none of the three; change any exit code; store a spelling that is not a `SCORE`
+key.
+
 ## Status
 | step | state | learned |
 |---|---|---|
@@ -629,3 +661,4 @@ anything other than the recommendation token; touch `scripts/rank.py` (S-66 owns
 | S-63 | done 2026-09-22 (PR #63) | The fence change is safe for a reason worth writing down rather than assumed: `elo` and `comparisons` live in `hypotheses.json`, not in `comparisons.jsonl`, so excluding the two tournament files costs the detector nothing a forged rating would need, and the new test asserts a `hypotheses.json` write in the same window is still a violation. Adding the two names also turned `SKIP` from a list into a definition — the files only the Supervisor's own scripts write — which is what made the second prose test possible: it iterates `fence.SKIP` and requires each name in council.md, so the next addition to SKIP cannot go undocumented. The ordering half could not be tested at all until that test was written; a prose rule with no test is how bug 17's other half survived two runs. The pair is drawn above the snapshot rather than merely 'not after it', because the blinded JSON has to be in the prompt anyway: the correct order was already forced by the data flow and nobody had written it down. Suite 497 -> 500. |
 | S-64 | done 2026-09-22 (PR #64) | The bug row asked for an "active-time line", and that is the one thing this step deliberately did not build: active time needs a number for what counts as idle, nobody has one, and a softened-looking minutes figure beside a hard cap is how invariant 4 gets argued away at runtime. A measured gap gives the reader the same fact with nothing invented, so the correction was narrowed before any code was written rather than implemented as logged. Counting `created_at` as a mark was not obvious until the test was written: a run can be left open before its first action, and without it the first pause is invisible. The CLI assertion had to be rewritten mid-step for an honest reason worth keeping — `budget.status` takes an injected `now` and the CLI does not, so the subprocess sees real wall clock and exits 0 where the in-process status exits 2; the quiet stretch is identical in both because it depends only on the journal and `created_at`, which is what the test now asserts. Break 3 fails two tests rather than one because both new tests assert the maximum from different sides. Suite 500 -> 503. |
 | S-65 | done 2026-09-22 (PR #65) | S-57 asked for a `repair.py` doing a lossless normalisation pass with every repair journaled, and the step that replaced it is smaller because normalisation is the expensive half: rewriting a role's text before storing it makes "lossless" a claim to argue, while a tolerant *reader* leaves nothing to argue about — the test compares the stored bytes with what was sent. No new module, no journal plumbing, one import each of `re` and `string`. Bug 19 turned out to be still open despite its row reading "queued under S-33": S-33 shipped the shape validation and never the lenient parsing, so `json.loads(raw)` was still strict at `main`. A bug row that names a step as its fix is not evidence the fix landed, which is worth checking on every row that points at a merged step. Two guards had to be proved not to loosen: a duplicated section and a missing one are still refusals, and break 5 exists only to show the duplicate check survived. Break 1 fails two tests because filtering back to the exact heading also hides a decorated duplicate from the counter. `strict=False` adds no reach — the same bytes as `\\u` escapes were always accepted — which is the reason it is safe rather than merely convenient. Suite 503 -> 507. |
+| S-66 | done 2026-09-22 (PR #66) | Two steps one after another made the opposite call about the same kind of leniency, and the difference is the whole lesson: S-65 stored a role's prose exactly as sent because prose has no correct form, while a three-member enum does, and `SCORE[winner]`, `winner_id`, `cycles` and the report all index it by that spelling — so here the canonical key is stored and tolerance stops at the door. Storing what the role typed would have moved the defect downstream. The CLI was never the path worth fixing: argparse already refuses `--winner a` at parse time and a human can retype it, while `council.accept` hands `reply["winner"]` straight to `record` and a refusal there burns the reservation, which is why the council round-trip test matters more than the rank one and why break 1 fails both. A permissive resolver is the obvious way this goes wrong, so the refusal test asserts `maybe`, the empty string, `A B`, `None` and `1` directly rather than trusting the loop. Suite 507 -> 510; bug 28 now closed in full. |

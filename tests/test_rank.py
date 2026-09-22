@@ -164,6 +164,28 @@ class RankTests(unittest.TestCase):
         self.assertEqual(len(rank._jsonl(self.run / rank.COMPARISONS)), 1)
         self.assertAlmostEqual(max(self.ratings().values()), 1208)
 
+    def test_a_winner_is_read_case_insensitively_and_stored_canonically(self):
+        for given, stored in (("a", "A"), ("B.", "B"), ("Draw", "draw"), ("  draw.  ", "draw")):
+            self.write([hyp(1), hyp(2)])
+            (self.run / rank.PAIRS).unlink(missing_ok=True)
+            (self.run / rank.COMPARISONS).unlink(missing_ok=True)
+            out = rank.pair(self.run, 3)
+            line = rank.record(self.run, out["pair_id"], given, "judged")
+            self.assertEqual(line["winner"], stored, given)
+            self.assertEqual(rank._jsonl(self.run / rank.COMPARISONS)[0]["winner"], stored, given)
+            if stored == "draw":
+                self.assertIsNone(line["winner_id"], given)
+            else:
+                self.assertEqual(line["winner_id"], line["a"] if stored == "A" else line["b"], given)
+
+    def test_a_winner_that_names_none_of_the_three_is_still_refused(self):
+        out = rank.pair(self.run, 3)
+        for given in ("maybe", "", "A B", None, 1):
+            with self.assertRaises(ValueError, msg=given):
+                rank.record(self.run, out["pair_id"], given, "judged")
+        self.assertFalse((self.run / rank.COMPARISONS).exists())
+        self.assertEqual(set(self.ratings().values()), {1200})
+
     def test_record_requires_judgment(self):
         out = rank.pair(self.run, 3)
         with self.assertRaises(ValueError):
