@@ -575,6 +575,43 @@ tests` → OK; `python3 scripts/validate_skill.py skills/research-council` → O
 **Must not:** change `minutes`, any cap, any exit code, or what counts as an action; subtract a gap
 from the spent minutes; invent an idle threshold; change the `spent:` line's format.
 
+### S-65 — council.py: a role's reply is not refused for its formatting
+
+**PR:** one.
+**Depends on:** nothing.
+**Research:** none.
+**Files:** `scripts/council.py`, `tests/test_council_runtime.py`,
+`skills/research-council/references/council.md`, `docs/bugs.md` (rows 19 and 28).
+**Today:** three places in `scripts/council.py` refuse a whole reply over presentation rather than
+content. `main` parses stdin with `json.loads(raw)`, which rejects a raw control character inside a
+string, so Reflection's 15 KB reply in the 2026-09-17 run could not be ingested until it was parsed
+by hand with `strict=False` (bug 19), and a reply wrapped in a Markdown code fence — which is how a
+model returns JSON unless told otherwise — is not JSON at all. `_meta` counts each heading as the
+exact string `## <name>\n`, so `## **Recommendation**`, a trailing space, a CRLF line ending or the
+same heading named twice in a summary line refuses the reply. `_meta` then reads the first
+whitespace token of the recommendation against the lower-case literals `continue` and `stop`, so
+`Continue` and `Stop.` refuse it (bug 28, council half). A refused reply costs the reserved spawn,
+which is not refunded, and the content was never the problem.
+**Change:** read the reply tolerantly; do not rewrite it. `main` strips one leading and trailing
+Markdown code fence before parsing and parses with `strict=False`, so a control character inside a
+string is read rather than refused. `_meta` counts a heading with a regex anchored at the start of
+a line that allows leading spaces, optional `*` or `_` emphasis around the name, and trailing
+spaces before the newline; the recommendation's first token is compared case-folded with its
+surrounding punctuation stripped. The stored text is exactly the text the role sent: nothing is
+normalised on the way to `meta.md`, so nothing can be lost. The `MAX_REPLY` size limit, the
+`_keys` field check, every schema rule and every exit code stay as they are.
+**Acceptance:** WHEN a meta-review reply writes its heading as `## **Recommendation**` and begins
+the recommendation `Continue —` THEN `council.py accept` SHALL store `meta.md` byte-for-byte as
+sent and exit 0, and WHEN a reply arrives fenced in ```json with a raw control character inside a
+string THEN the CLI SHALL parse it and exit 0, and WHEN the reply has no Recommendation section at
+all THEN it SHALL still be refused.
+**Verify:** `python3 -m unittest tests.test_council_runtime -v` → pass; put the exact heading count
+back → the new heading test fails; drop `strict=False` → the new control-character test fails;
+drop the fence strip → the new fence test fails; `python3 -m unittest discover -s tests` → OK.
+**Must not:** change what is stored in `meta.md`; accept a reply missing a required section, field
+or id; relax `MAX_REPLY`, the goal or input fingerprint checks, or the fence check; case-fold
+anything other than the recommendation token; touch `scripts/rank.py` (S-66 owns it).
+
 ## Status
 | step | state | learned |
 |---|---|---|

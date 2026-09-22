@@ -364,6 +364,49 @@ class CouncilRuntimeTests(unittest.TestCase):
         self.assertEqual((self.run / "hypotheses.json").read_bytes(), before)
         self.assertFalse((self.run / "comparisons.jsonl").exists())
 
+    def test_a_decorated_heading_and_a_capitalised_recommendation_are_accepted(self):
+        self.generate()
+        packet = council.prepare(self.run, "meta-review")
+        reply = {"content": "# Meta-review\r\n\r\n##  **Recurring weaknesses**  \r\nNone recorded.\r\n\r\n"
+                            "## _Hypothesis status_\r\nNo hypothesis refuted.\r\n\r\n"
+                            "  ## Next investigation \r\nI-1\r\n\r\n"
+                            "## **Recommendation**\r\nContinue — one discriminating read remains.\r\n"}
+        council.accept(self.run, packet["request_id"], reply)
+        self.assertEqual((self.run / "meta.md").read_bytes(), reply["content"].encode("utf-8"))
+
+    def test_a_missing_section_is_still_refused(self):
+        self.generate()
+        packet = council.prepare(self.run, "meta-review")
+        reply = self.meta()
+        reply["content"] = reply["content"].replace("## Recommendation\n", "")
+        with self.assertRaises(ValueError):
+            council.accept(self.run, packet["request_id"], reply)
+        self.assertFalse((self.run / "meta.md").exists())
+
+    def test_a_duplicated_section_is_still_refused(self):
+        self.generate()
+        packet = council.prepare(self.run, "meta-review")
+        reply = self.meta()
+        reply["content"] += "\n## **Recommendation**\ncontinue\n"
+        with self.assertRaises(ValueError):
+            council.accept(self.run, packet["request_id"], reply)
+
+    def test_a_fenced_reply_with_control_characters_is_parsed_by_the_cli(self):
+        self.generate()
+        self.seed_claim()
+        packet = council.prepare(self.run, "reflection")
+        reply = self.objections()
+        reply["objections"][0]["text"] = "Needs\tcorroboration:\x1fsee the second record."
+        raw = "```json\n" + json.dumps(reply)[:-1].replace("\\t", "\t").replace("\\u001f", "\x1f") + "}\n```\n"
+        self.assertRaises(json.JSONDecodeError, json.loads, raw)
+        r = subprocess.run([sys.executable, str(ROOT / "scripts/council.py"), "accept",
+                            "--run", str(self.run), "--request", packet["request_id"], "--from", "-"],
+                           input=raw, capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        stored = json.loads((self.run / "objections.json").read_text(encoding="utf-8"))
+        self.assertEqual(stored["objections"][0]["text"],
+                         "Needs\tcorroboration:\x1fsee the second record.")
+
     def test_malformed_meta_and_oversized_reply_are_refused(self):
         self.generate()
         packet = council.prepare(self.run, "meta-review")

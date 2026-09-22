@@ -3,6 +3,8 @@ import hashlib
 import json
 import math
 import os
+import re
+import string
 import sys
 import tempfile
 import uuid
@@ -240,15 +242,26 @@ def _reflection(run, reply):
     return reply
 
 
+def _heading(name):
+    """`## <name>` at the start of a line, tolerating indent, * or _ emphasis, and trailing spaces.
+
+    Presentation only: what the heading looks like never changes what is stored (bug 28).
+    """
+    return re.compile(rf"^[ \t]*##[ \t]*[*_]*{re.escape(name)}[*_]*[ \t\r]*$\n?", re.MULTILINE)
+
+
 def _meta(reply):
     _keys(reply, ("content",))
     text = reply["content"]
     _text(text, "content")
+    body = []
     for heading in ("Recurring weaknesses", "Hypothesis status", "Next investigation", "Recommendation"):
-        if text.count(f"## {heading}\n") != 1:
+        found = list(_heading(heading).finditer(text))
+        if len(found) != 1:
             raise ValueError(f"meta-review requires one {heading} section")
-    recommendation = text.split("## Recommendation\n", 1)[1].strip().splitlines()
-    if not recommendation or recommendation[0].split()[0] not in ("continue", "stop"):
+        if heading == "Recommendation":
+            body = text[found[0].end():].strip().splitlines()
+    if not body or body[0].split()[0].strip(string.punctuation).casefold() not in ("continue", "stop"):
         raise ValueError("meta-review recommendation must begin continue or stop")
     return text
 
@@ -320,6 +333,20 @@ def cancel(run, request_id):
     (run / PENDING).unlink()
 
 
+FENCE = re.compile(r"\A\s*```[A-Za-z0-9_-]*[ \t]*\n(?P<body>.*)\n\s*```\s*\Z", re.DOTALL)
+
+
+def _parse(raw):
+    """Read a role's reply as JSON: one Markdown code fence stripped, control characters allowed.
+
+    A model returns JSON in a fence unless told otherwise, and a long reply carries raw control
+    characters inside its strings (bugs 19 and 28). Neither is a content problem, and a refusal
+    costs the reserved spawn. Nothing here changes a value: only what surrounds it.
+    """
+    fenced = FENCE.match(raw)
+    return json.loads(fenced.group("body") if fenced else raw, strict=False)
+
+
 def main(argv):
     parser = argparse.ArgumentParser(prog="council.py")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -345,7 +372,7 @@ def main(argv):
             raw = sys.stdin.read(MAX_REPLY + 1) if args.source == "-" else Path(args.source).read_text(encoding="utf-8")
             if len(raw) > MAX_REPLY:
                 raise ValueError("reply exceeds size limit")
-            result = {"output": str(accept(args.run, args.request, json.loads(raw)))}
+            result = {"output": str(accept(args.run, args.request, _parse(raw)))}
         print(json.dumps(result, ensure_ascii=False, allow_nan=False))
     except (OSError, ValueError, KeyError, TypeError) as error:
         print(str(error), file=sys.stderr)
