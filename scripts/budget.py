@@ -6,8 +6,12 @@ Usage:
 
 Reads goal.json through goal.load, or task.json (a code-writer-council run) through
 task.load, so a hand-edited budget is refused either way, plus journal.jsonl.
-Prints one line:
+Prints the spent line, and a second line whenever the journal holds any entry:
   spent: 12/60 min, 30/200 actions, 2/4 subagents, ~$0.40/$5 (unmetered: 3)
+  minutes are wall clock since created_at; longest quiet stretch: 288 min, ending <ts>
+
+The second line is measured from the journal's own timestamps and explains nothing away: the
+minutes spent are still wall clock since `created_at`, because that is the cap the user set.
 Exit 0 when every number is within its cap, 2 when any cap is exceeded (each exceeded cap
 named on stderr), 1 when goal.json is missing, tampered, or lacks a budget number.
 
@@ -66,7 +70,24 @@ def status(run, now=None):
         raise ValueError("non-finite total cost in journal")
     unmetered = sum(1 for e in entries if e["cost_usd"] is None)
     exceeded = [k for k in CAPS if spent[k] > caps[k]]
-    return {"spent": spent, "caps": caps, "unmetered": unmetered, "exceeded": exceeded}
+    return {"spent": spent, "caps": caps, "unmetered": unmetered, "exceeded": exceeded,
+            "longest_gap": longest_gap(created, entries)}
+
+
+def longest_gap(created, entries):
+    """(minutes, end timestamp) of the longest quiet stretch, or None when the journal is empty.
+
+    The stretch from `created_at` to the first line counts, so a run left open before its first
+    action is reported like any other pause. Nothing here is subtracted from the spent minutes:
+    the cap is wall clock because the user set it that way (CLAUDE.md invariant 4), and this only
+    says where those minutes went.
+    """
+    marks = [created] + [datetime.fromisoformat(e["ts"]) for e in entries]
+    gaps = [(b - a, b) for a, b in zip(marks, marks[1:])]
+    if not gaps:
+        return None
+    widest, end = max(gaps, key=lambda g: g[0])
+    return int(widest.total_seconds() // 60), end.isoformat()
 
 
 def line(st):
@@ -76,6 +97,15 @@ def line(st):
             f"{s['max_subagents']}/{c['max_subagents']} subagents, "
             f"~${s['usd_estimate_cap']:.2f}/${_money(c['usd_estimate_cap'])} "
             f"(unmetered: {st['unmetered']})")
+
+
+def pause_line(st):
+    """The second output line, or None when the journal is empty."""
+    if st["longest_gap"] is None:
+        return None
+    minutes, end = st["longest_gap"]
+    return (f"minutes are wall clock since created_at; longest quiet stretch: "
+            f"{minutes} min, ending {end}")
 
 
 def main(argv):
@@ -90,6 +120,9 @@ def main(argv):
         print(str(e), file=sys.stderr)
         return 1
     print(line(st))
+    pause = pause_line(st)
+    if pause:
+        print(pause)
     if st["exceeded"]:
         for k in st["exceeded"]:
             print(f"exceeded: {k} ({st['spent'][k]}/{st['caps'][k]})", file=sys.stderr)

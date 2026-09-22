@@ -540,6 +540,41 @@ skills/research-council` → OK.
 `claims.jsonl` from the comparison; change what any role is allowed to write; let `fence.py` delete
 or restore a file.
 
+### S-64 — budget.py: say where the wall-clock minutes went
+
+**PR:** one.
+**Depends on:** nothing.
+**Research:** none.
+**Files:** `scripts/budget.py`, `tests/test_budget.py`,
+`skills/research-council/references/budget.md`, `skills/research-council/SKILL.md`,
+`docs/bugs.md` (row 18).
+**Today:** `status` computes `minutes` as wall-clock minutes since `created_at`, which is the
+user's rule and stays the user's rule. Nothing says so on the output, though, so the 2026-09-17 run
+printed `313/90 min` at report time after about 25 minutes of Supervisor work: the run had waited
+288 minutes between two interactive turns. The reader of that line has no way to tell a run that
+overspent from a run that was left open overnight, and the same line makes the next `check` exit 2.
+`references/budget.md` states the wall-clock rule only in a table cell, and `SKILL.md` never warns
+that a pause spends the cap.
+**Change:** the minutes stay exactly as they are — the cap is the user's and no script may soften
+it (CLAUDE.md invariant 4) — and `budget.py` prints one extra line saying where they went, computed
+from the timestamps already in `journal.jsonl`: the longest gap between two consecutive journal
+lines (the gap from `created_at` to the first line counts as one), in minutes, with the time it
+ended. No threshold is invented and no minute is excused: the line reports a measured gap, and the
+reader decides whether it was work or waiting. It is printed whenever the journal holds at least
+one line, after the `spent:` line, and the existing `line(st)` is untouched so the `spent:` format
+does not move. `references/budget.md` states the wall-clock rule in its own sentence above the
+table, and `SKILL.md` tells the Supervisor to finish a run in one sitting and to report the pause
+in the run note when it cannot.
+**Acceptance:** WHEN a run's journal holds two lines 288 minutes apart THEN `budget.py check` SHALL
+print a second line naming 288 minutes as the longest gap and the time it ended, and WHEN the
+minutes cap is exceeded THEN the exit code SHALL still be 2 and the reported minutes SHALL still be
+the wall-clock minutes since `created_at`.
+**Verify:** `python3 -m unittest tests.test_budget -v` → pass; make the gap ignore `created_at` →
+the new test fails; drop the pause line → the new test fails; `python3 -m unittest discover -s
+tests` → OK; `python3 scripts/validate_skill.py skills/research-council` → OK.
+**Must not:** change `minutes`, any cap, any exit code, or what counts as an action; subtract a gap
+from the spent minutes; invent an idle threshold; change the `spent:` line's format.
+
 ## Status
 | step | state | learned |
 |---|---|---|
@@ -555,3 +590,4 @@ or restore a file.
 | S-61 | done 2026-09-22 (PR #61) | A docs bug, and the only kind of step here with no guard to break: nothing in code enforces either sentence, so the proof is that both claims were read off the system rather than off the bug row. Both were. `~/AGI_Research/` really is a bibliography corpus, and the run folder for goal id 622aeb79 really holds 40 evidence records and 27 claims — the same numbers the table's five per-step rows sum to, which is two independent confirmations of one count and the reason the totals could be written down at all. The third part of bug 29 could not be closed the same way: the 2026-09-10 section belongs to a different run whose folder is gone, so its `9 claim records` was left exactly as written and marked unverifiable instead of being corrected to the 11 the bug row claims. Correcting it from the bug row would have been restating an unchecked number as a fact, which is the failure this step exists to fix. `AGI_Research/runs/622aeb79-.../` was written plain in the end: a run folder is gitignored, so backticking it would break the convention that a backticked path exists in a checkout. |
 | S-62 | done 2026-09-22 (PR #62) | The fix is one rule with two effects, and both are needed because `choose` is a preference, not a filter: reading `pairs.jsonl` into `_opponents` only moves an outstanding matchup to the back of the queue, so with two open hypotheses and one pair outstanding it is still returned and has to be refused outright. The refusal could not be the whole fix either — refusing on *any* outstanding pair would strand a run whose Ranking spawn never replied, with no cancel path in the script — so it refuses the specific matchup and only when nothing else is drawable. Two existing tests turned out to pin the defect while testing something else entirely: both reissued the same matchup, one to prove a seed gives a deterministic A/B order and one to loop six draws over the last open matchup. Neither needed the reissue: the first only needed `pairs.jsonl` cleared between draws, and the second reads better recording each pair first, which incidentally proves the rematch case this step's Must-not protects. `pair` does not bump `comparisons` — only `record` does — which is why a second draw with four open hypotheses still starts from the same first hypothesis and simply takes the next opponent. Suite 495 -> 497. |
 | S-63 | done 2026-09-22 (PR #63) | The fence change is safe for a reason worth writing down rather than assumed: `elo` and `comparisons` live in `hypotheses.json`, not in `comparisons.jsonl`, so excluding the two tournament files costs the detector nothing a forged rating would need, and the new test asserts a `hypotheses.json` write in the same window is still a violation. Adding the two names also turned `SKIP` from a list into a definition — the files only the Supervisor's own scripts write — which is what made the second prose test possible: it iterates `fence.SKIP` and requires each name in council.md, so the next addition to SKIP cannot go undocumented. The ordering half could not be tested at all until that test was written; a prose rule with no test is how bug 17's other half survived two runs. The pair is drawn above the snapshot rather than merely 'not after it', because the blinded JSON has to be in the prompt anyway: the correct order was already forced by the data flow and nobody had written it down. Suite 497 -> 500. |
+| S-64 | done 2026-09-22 (PR #64) | The bug row asked for an "active-time line", and that is the one thing this step deliberately did not build: active time needs a number for what counts as idle, nobody has one, and a softened-looking minutes figure beside a hard cap is how invariant 4 gets argued away at runtime. A measured gap gives the reader the same fact with nothing invented, so the correction was narrowed before any code was written rather than implemented as logged. Counting `created_at` as a mark was not obvious until the test was written: a run can be left open before its first action, and without it the first pause is invisible. The CLI assertion had to be rewritten mid-step for an honest reason worth keeping — `budget.status` takes an injected `now` and the CLI does not, so the subprocess sees real wall clock and exits 0 where the in-process status exits 2; the quiet stretch is identical in both because it depends only on the journal and `created_at`, which is what the test now asserts. Break 3 fails two tests rather than one because both new tests assert the maximum from different sides. Suite 500 -> 503. |

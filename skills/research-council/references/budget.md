@@ -8,9 +8,15 @@ cap is passed.
 ## Before starting
 Ask the user for all four numbers and write them into the goal (S-3):
 
+`minutes` is wall clock, not working time: the meter runs from `created_at` whether anyone is
+at the keyboard or not, so a run left open between two interactive turns spends the cap on
+waiting. `budget.py check` prints a second line naming the longest quiet stretch in the journal
+and when it ended, so a `313/90 min` can be read for what it is. That line explains nothing
+away — the spent minutes are still wall clock, because that is the cap the user set.
+
 | cap | meaning |
 |---|---|
-| `minutes` | wall-clock minutes since `created_at` |
+| `minutes` | wall-clock minutes since `created_at`, pauses included |
 | `max_actions` | journal lines of kind fetch, read, write, subagent, exec, judge (`note` does not count) |
 | `max_subagents` | journal lines of kind `subagent` |
 | `usd_estimate_cap` | sum of `cost_usd`; `null` counts as 0 and is reported as `unmetered: N` |
