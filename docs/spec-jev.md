@@ -737,6 +737,40 @@ fails; `python3 -m unittest discover -s tests` → OK.
 number through to make the date pass; add a denylist of date or identifier shapes; make the private-
 record check run later than it does; call the network.
 
+### S-69 — a bug row says where its fix landed
+
+**PR:** one.
+**Depends on:** nothing.
+**Research:** none.
+**Files:** `docs/bugs.md`, `tests/test_bug_log.py` (new), `docs/spec-jev.md`.
+**Today:** `docs/bugs.md` is the record of what is fixed and what is not, and nine of its thirty
+rows do not say. Row 24 reads `fixed 2026-09-21 in S-49 (PR pending)` although S-49 merged as
+PR #51 the same day; rows 11, 12, 13, 14, 15, 20 and 21 read `fixed locally`, written before
+S-32, S-33, S-34 and S-35 were merged as PR #36, #38, #41 and #37; row 5's cell is the bare step
+id `S-17`, merged as PR #26. All nine fixes were read off the current code before this step was
+written — `scripts/report.py` opens `objections.json`, `scripts/harness.py` resolves the runtime
+root, `scripts/council.py` accepts a reply through `accept` and writes it through a temporary file
+it then replaces, `scripts/goal.py` and `scripts/journal.py` call `math.isfinite`,
+`scripts/council.py` includes `journal.FILENAME` in its path checks, `scripts/report.py` refuses a
+`blocking` value that is not `bool`, and `scripts/done.py` calls `findings`, `resolutions` and
+`thinker_tests` at lines 222-224 above `run_tests` at line 226 — so every row understates work
+that is on main rather than claiming work that is not. This is bug 22 again, one file along:
+a register that claims less than what is true is one a reader cannot use either.
+**Change:** each of the nine state cells names the PR that carried the fix, keeping the sentence
+it already has. A row whose fix has not landed keeps saying so: row 25 stays `fix queued as S-50`
+and row 30 stays `open`. Then `tests/test_bug_log.py` enforces the convention the corrections
+follow — every data row of every table in `docs/bugs.md` ends in a state cell that either names a
+merge as `PR #<number>` or says `open`, `queued`, `parked` or `blocked`. The two tables have
+different column counts, six and four, so the test reads the last cell of each row rather than a
+fixed index, and skips the header and separator rows by the same shape test.
+**Acceptance:** WHEN `python3 -m unittest tests.test_bug_log` runs THEN it SHALL pass, and WHEN
+any state cell in `docs/bugs.md` claims a fix without naming `PR #<number>` THEN that test SHALL
+fail naming the row's id.
+**Verify:** `python3 -m unittest tests.test_bug_log -v` → pass; restore row 24's `(PR pending)` →
+exactly that test fails naming row 24; `python3 -m unittest discover -s tests` → OK.
+**Must not:** change any row's evidence, reproduction or correction text; mark a row fixed whose
+fix was not read off the current code; invent a PR number; touch `docs/spec-v1.md` or any script.
+
 ## Status
 | step | state | learned |
 |---|---|---|
