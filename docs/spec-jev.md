@@ -289,9 +289,14 @@ the same egress guard, printing how many records it excluded and why. A claim is
 if Reflection demonstrably read it: the sha256 recorded in the run's fence/reflection.json must
 match a line-prefix of claims.jsonl, and where the fence folder is missing the fallback is every
 id at or below the highest id any objection in that run names. Claims carrying `superseded_by` are
-excluded. Negatives come from the objections: `provenance` means supported 0, `scope` means wider
-1, `type` means inferred 1, `counterexample` means contradicted 1. Thirty hand-written hard
-negatives are appended from the fixture: a changed number, the right words about the wrong
+excluded, and so is any claim the number rule already answers in code, because production never sends those to Jev and a threshold must be fitted on what Jev actually sees. Negatives come from the objections: `provenance` means supported 0, `scope` means wider
+1, `type` means inferred 1. A `counterexample` claim is excluded, not labelled: agents/reflection.md
+lets it name any record on file, and the state holds only the cited excerpts, so the label cannot be
+judged from what Jev sees (found on the first train misses packet, where every contradicted miss was
+such a claim). An unobjected claim is a full positive only when its claim_type is `observed`; one
+Reflection accepted as `inferred` or `predicted` is labelled inferred 1 and nothing else, because
+the battery's inferred question asks exactly that and the first labelling said the opposite. Thirty hand-written hard
+negatives are appended from the fixture: a changed number written in words (a digit would be caught by the number rule and never reach Jev), the right words about the wrong
 entity, a paraphrase that flips the polarity, an instruction quoted inside an excerpt. Then,
 outside the repository, the jev skill's calibration tool fits thresholds on the training split
 and reports the held-out split; if the bar is missed, its own optimiser writes a packet of
