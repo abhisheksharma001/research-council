@@ -21,8 +21,14 @@ python3 scripts/rank.py record --run <run> --pair P-3 --winner A --judgment "<it
 ```
 `pair` refuses with exit 1 when fewer than two hypotheses are `open`. It picks the
 hypothesis with the fewest comparisons (ties: highest rating), then an opponent it has not
-met, preferring one that shares opponents (so cycles can show), then the highest rating.
-Use a fresh seed per call; the seed only shuffles which side is A.
+been drawn against, preferring one that shares opponents (so cycles can show), then the
+highest rating. Use a fresh seed per call; the seed only shuffles which side is A.
+
+A pair that has been issued and not yet recorded counts as drawn, so the next `pair` picks a
+different matchup where one exists and refuses with exit 1 where none does, naming the
+outstanding pair id. That is what "one pair at a time" means in practice: judging the same
+two hypotheses twice would feed one matchup into Elo twice. A matchup whose result is already
+in `comparisons.jsonl` may be drawn again — that is a rematch, and both results count.
 
 `record` refuses an unknown pair, a pair already recorded, and an empty judgment, and
 writes nothing on refusal. Scores: win 1, draw 0.5, loss 0; K = 16.

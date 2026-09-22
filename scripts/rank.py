@@ -9,7 +9,8 @@ Usage:
   python3 scripts/rank.py stop   --run <run-dir> --hyp <H-n> --reason <text>
 
 pair    picks two open hypotheses (fewest comparisons first, then highest rating;
-        the opponent prefers an unplayed pair, then shared opponents, then rating),
+        the opponent prefers a pair that has not been drawn, then shared opponents, then
+        rating; a pair already issued and not yet recorded counts as drawn and is refused),
         writes the pair to pairs.jsonl and prints a blinded JSON object: sides A and B in
         seed-shuffled order carrying only statement, predicted_result, needed_evidence and
         stop_condition. No id, rating, parent or status reaches the Ranking agent.
@@ -75,12 +76,21 @@ def _by_id(doc):
 
 
 def _opponents(run):
-    """id -> set of ids it has been compared against."""
+    """id -> set of ids it has been drawn against, issued but unjudged pairs included."""
+    run = Path(run)
     opp = {}
-    for c in _jsonl(Path(run) / COMPARISONS):
+    for c in _jsonl(run / PAIRS) + _jsonl(run / COMPARISONS):
         opp.setdefault(c["a"], set()).add(c["b"])
         opp.setdefault(c["b"], set()).add(c["a"])
     return opp
+
+
+def _outstanding(run):
+    """{frozenset({a, b}): pair_id} for every issued pair that has no comparison line yet."""
+    run = Path(run)
+    recorded = {c["pair_id"] for c in _jsonl(run / COMPARISONS)}
+    return {frozenset((p["a"], p["b"])): p["pair_id"]
+            for p in _jsonl(run / PAIRS) if p["pair_id"] not in recorded}
 
 
 def choose(doc, opponents):
@@ -104,6 +114,10 @@ def pair(run, seed):
     run = Path(run)
     doc = load(run)
     first, second = choose(doc, _opponents(run))
+    issued = _outstanding(run).get(frozenset((first["id"], second["id"])))
+    if issued:
+        raise ValueError(f"pair {issued} is already issued for {first['id']} vs {second['id']} "
+                         f"and not recorded; record it or judge it first")
     sides = [first, second]
     random.Random(seed).shuffle(sides)
     pairs = _jsonl(run / PAIRS)

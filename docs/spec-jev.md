@@ -477,6 +477,39 @@ changed files exists on disk.
 **Must not:** change any script, test or skill file; restate a count that cannot be read from a run
 folder on this machine; delete a row of the self-run table.
 
+### S-62 — rank.py: an issued pair counts as drawn until it is recorded
+
+**PR:** one.
+**Depends on:** nothing.
+**Research:** none.
+**Files:** `scripts/rank.py`, `tests/test_rank.py`,
+`skills/research-council/references/rank.md`, `docs/bugs.md` (row 16).
+**Today:** `_opponents` builds its id-to-opponents map from `comparisons.jsonl` only, so a pair that
+has been issued into `pairs.jsonl` and not yet judged is invisible to `choose`. Running
+`rank.py pair --seed 1` and then `rank.py pair --seed 2` before recording the first draws the same
+two hypotheses twice, as P-1 and P-2. Judging both would feed one matchup into Elo twice, which is
+what the rating is supposed to be protected from; in the 2026-09-17 run P-2 was left unjudged and
+journaled instead (bug 16). `record` already refuses a pair it has recorded before, but nothing
+refuses issuing one.
+**Change:** an issued pair counts as drawn until it is recorded. `_opponents` reads `pairs.jsonl`
+as well as `comparisons.jsonl`, both of which carry `a` and `b`, so `choose` prefers an opponent the
+hypothesis has not been drawn against rather than one it has not been judged against. Where the
+tournament has no other matchup left — two open hypotheses and one outstanding pair — `choose` still
+returns that matchup, so `pair` refuses it: it looks the chosen matchup up among the issued pairs
+that have no comparison line, and raises `pair <P-n> is already issued for <H-a> vs <H-b> and not
+recorded; record it or judge it first` before writing anything. A matchup whose result is recorded
+can still be drawn again, which is a rematch and not a double count. `references/rank.md` states
+the rule under its existing one-pair-at-a-time heading.
+**Acceptance:** WHEN `pair` is run twice without recording the first result and only two hypotheses
+are open THEN the second call SHALL exit 1 naming the outstanding pair id and `pairs.jsonl` SHALL
+hold one line, and WHEN a third hypothesis is open THEN the second call SHALL draw a matchup that
+is not the outstanding one.
+**Verify:** `python3 -m unittest tests.test_rank -v` → pass; drop `pairs.jsonl` from `_opponents`
+→ the new selection test fails; drop the refusal → the new refusal test fails;
+`python3 -m unittest discover -s tests` → OK.
+**Must not:** change the Elo arithmetic, the blinding, or any exit-code meaning; refuse a rematch of
+a matchup that has a recorded result; write to `pairs.jsonl` on a refusal; give `record` a new rule.
+
 ## Status
 | step | state | learned |
 |---|---|---|
@@ -490,3 +523,4 @@ folder on this machine; delete a row of the self-run table.
 | S-59 | done 2026-09-22 (PR #59) | Bug 27 is two independent defects in one file, so it is two steps: this one is the half that fails open. The single prefix list was not merely imprecise, it was unsound in both directions — `--` and `*` hid real removed lines in shell and Python verifiers, and dropping them outright would have made a genuine SQL or C comment a removed line instead. Only a per-language map fixes both, which is why the constant became a dict and `is_comment` took a path. `scripts/done.py` had to change in the same PR because `defines` calls `scope.is_comment`: the signature is the coupling, and S-58 had already attributed every added line to its file, so the path was there to pass. The fallback for an unknown extension is `("#", "//")` rather than the old union, because a verifier-edit line is a warning the user can silence with `allow_verifier_edits` while a missed one is silent, so the guard leans to over-reporting. Free consequences of reading the language: `#include` in a `.c` verifier and `#` headings in a `.md` one are now real lines, and `.gitignore` falls to the fallback where `#` is right anyway. The fixture change is the test: `run_tests.sh` gained a `--failfast` continuation line, which the old code read as a comment. Suite 493 → 494. |
 | S-60 | done 2026-09-22 (PR #60) | Bug 27's second half, and the half that fails closed: the substring test never let a weakening through, it invented ones. Writing the step from the `skip`/`skipped` case alone produced a rule for the word-shaped markers only; running `verifier_reasons` on real lines before touching the code found `sys.exit(1)` reported as an `xit(` marker, the same defect on a call-shaped marker's leading edge, so the step block was corrected first and the fix became one rule: a word boundary on each edge of the marker whose own character there is a word character, and on no other edge. That is why `.only(` and `xdescribe(` keep working (`.` and `(` are not word characters, so they get no boundary) while `@ignore` gets one only on its right. The boundary lives in a compiled pattern per marker built at import, so `WEAKENING_MARKERS` stays the single list a reader edits and the printed reason still names the marker string, not the regex. The test asserts both directions in one new file — `r.skipped`, `skip_list` and `sys.exit(1)` silent, `@unittest.skip(` still reported — because a marker fix that only proves the negative would pass with the matcher deleted. Suite 494 -> 495; bug 27 now closed in full. |
 | S-61 | done 2026-09-22 (PR #61) | A docs bug, and the only kind of step here with no guard to break: nothing in code enforces either sentence, so the proof is that both claims were read off the system rather than off the bug row. Both were. `~/AGI_Research/` really is a bibliography corpus, and the run folder for goal id 622aeb79 really holds 40 evidence records and 27 claims — the same numbers the table's five per-step rows sum to, which is two independent confirmations of one count and the reason the totals could be written down at all. The third part of bug 29 could not be closed the same way: the 2026-09-10 section belongs to a different run whose folder is gone, so its `9 claim records` was left exactly as written and marked unverifiable instead of being corrected to the 11 the bug row claims. Correcting it from the bug row would have been restating an unchecked number as a fact, which is the failure this step exists to fix. `AGI_Research/runs/622aeb79-.../` was written plain in the end: a run folder is gitignored, so backticking it would break the convention that a backticked path exists in a checkout. |
+| S-62 | done 2026-09-22 (PR #62) | The fix is one rule with two effects, and both are needed because `choose` is a preference, not a filter: reading `pairs.jsonl` into `_opponents` only moves an outstanding matchup to the back of the queue, so with two open hypotheses and one pair outstanding it is still returned and has to be refused outright. The refusal could not be the whole fix either — refusing on *any* outstanding pair would strand a run whose Ranking spawn never replied, with no cancel path in the script — so it refuses the specific matchup and only when nothing else is drawable. Two existing tests turned out to pin the defect while testing something else entirely: both reissued the same matchup, one to prove a seed gives a deterministic A/B order and one to loop six draws over the last open matchup. Neither needed the reissue: the first only needed `pairs.jsonl` cleared between draws, and the second reads better recording each pair first, which incidentally proves the rematch case this step's Must-not protects. `pair` does not bump `comparisons` — only `record` does — which is why a second draw with four open hypotheses still starts from the same first hypothesis and simply takes the next opponent. Suite 495 -> 497. |
