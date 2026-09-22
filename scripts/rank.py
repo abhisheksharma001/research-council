@@ -16,6 +16,7 @@ pair    picks two open hypotheses (fewest comparisons first, then highest rating
         stop_condition. No id, rating, parent or status reaches the Ranking agent.
 record  looks the pair up, appends one line to comparisons.jsonl and updates `elo` and
         `comparisons` on both hypotheses (start 1200, K=16, win 1 / draw 0.5 / loss 0).
+        The winner is read case-insensitively and stored as A, B or draw.
 cycles  prints every non-transitive triple X > Y > Z > X among recorded wins.
 table   prints ratings, highest first, with comparison counts and status.
 stop    sets one open hypothesis to status `stopped` with `stopped_reason` (the Supervisor
@@ -30,6 +31,7 @@ Exit 0 ok, 1 invalid input or refused.
 import argparse
 import json
 import random
+import string
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -136,11 +138,23 @@ def elo_update(ra, rb, sa, sb):
     return ra + K * (sa - ea), rb + K * (sb - eb)
 
 
+def winner_key(value):
+    """The SCORE key `value` names, read case-insensitively: "a" -> "A", "Draw." -> "draw".
+
+    A Ranking reply worth a whole spawn should not be discarded for a capital letter (bug 28).
+    The key, not the spelling, is what is stored: every later reader indexes SCORE by it.
+    """
+    folded = value.strip().strip(string.punctuation).casefold() if isinstance(value, str) else None
+    for key in SCORE:
+        if key.casefold() == folded:
+            return key
+    raise ValueError("winner must be A, B or draw")
+
+
 def record(run, pair_id, winner, judgment):
     """Append the result and update both ratings. Returns the comparison line. Raises ValueError."""
     run = Path(run)
-    if winner not in SCORE:
-        raise ValueError("winner must be A, B or draw")
+    winner = winner_key(winner)
     if not isinstance(judgment, str) or not judgment.strip():
         raise ValueError("judgment must be a non-empty string")
     issued = {p["pair_id"]: p for p in _jsonl(run / PAIRS)}
@@ -221,7 +235,7 @@ def main(argv):
     s = sub.add_parser("record")
     s.add_argument("--run", required=True)
     s.add_argument("--pair", required=True)
-    s.add_argument("--winner", required=True, choices=sorted(SCORE))
+    s.add_argument("--winner", required=True, type=winner_key, choices=sorted(SCORE))
     s.add_argument("--judgment", required=True)
     for name in ("cycles", "table"):
         sub.add_parser(name).add_argument("--run", required=True)

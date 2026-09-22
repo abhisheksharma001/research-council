@@ -612,6 +612,38 @@ drop the fence strip → the new fence test fails; `python3 -m unittest discover
 or id; relax `MAX_REPLY`, the goal or input fingerprint checks, or the fence check; case-fold
 anything other than the recommendation token; touch `scripts/rank.py` (S-66 owns it).
 
+### S-66 — rank.py: the winner is one of three values however it is capitalised
+
+**PR:** one.
+**Depends on:** S-65.
+**Research:** none.
+**Files:** `scripts/rank.py`, `tests/test_rank.py`,
+`skills/research-council/references/rank.md`, `docs/bugs.md` (row 28).
+**Today:** `record` tests `winner not in SCORE`, whose keys are `A`, `B` and `draw`, so `a`, `Draw`
+and `draw.` are refused (bug 28, rank half). The CLI is reached through
+`--winner ... choices=sorted(SCORE)` and refuses the same values at argparse, but the path that
+matters is `scripts/council.py` `accept`, which passes a Ranking role's `reply["winner"]` straight
+into `record`: a reply worth a whole spawn is discarded for a capital letter, and the reservation
+is not refunded. S-65 made the meta-review reply tolerant of its own formatting; this is the same
+defect in the one enum a Ranking reply carries.
+**Change:** `record` resolves the winner to the `SCORE` key it names, comparing case-folded with
+surrounding punctuation stripped, and raises the same message as today for anything that resolves
+to none of the three. The canonical key is what goes into `comparisons.jsonl`, unlike S-65's
+verbatim text: a three-member enum has a correct spelling and every later reader — `SCORE[winner]`,
+`winner_id`, `cycles` and the report — indexes it by that spelling, so storing `a` would move the
+defect downstream instead of fixing it. The CLI takes the same resolver as its argument `type`, so
+`--winner a` reaches argparse's `choices` already canonical. `references/rank.md` says the winner is
+read case-insensitively and stored canonically.
+**Acceptance:** WHEN a Ranking reply gives `"winner": "a"` THEN `council.py accept` SHALL record the
+comparison with `winner` `A` and exit 0, and WHEN it gives `"winner": "Draw."` THEN the stored
+winner SHALL be `draw` with `winner_id` null, and WHEN it gives `"winner": "maybe"` THEN `record`
+SHALL still raise and write no comparison line.
+**Verify:** `python3 -m unittest tests.test_rank tests.test_council_runtime -v` → pass; compare the
+winner exactly again → the new test fails; `python3 -m unittest discover -s tests` → OK.
+**Must not:** add a fourth winner value; change the Elo arithmetic or `winner_id`; accept a winner
+that resolves to none of the three; change any exit code; store a spelling that is not a `SCORE`
+key.
+
 ## Status
 | step | state | learned |
 |---|---|---|
