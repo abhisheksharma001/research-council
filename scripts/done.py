@@ -80,11 +80,24 @@ def diff_sha(patch, untracked):
     return h.hexdigest()
 
 
-def added_text(patch, untracked):
-    """Added lines of the patch, then every untracked file's text."""
-    lines = [line[1:] for line in patch.decode("utf-8", "replace").splitlines()
-             if line.startswith("+") and not line.startswith("+++")]
-    return "\n".join(lines) + "\n" + "\n".join(data.decode("utf-8", "replace") for data in untracked.values())
+def added_by_file(patch, untracked):
+    """{path: [added lines]}: the patch's own +++ headers, then every untracked file's lines."""
+    out, path = {}, None
+    for line in patch.decode("utf-8", "replace").splitlines():
+        if line.startswith("+++ "):
+            target = line[4:].strip()
+            path = None if target == "/dev/null" else target[2:] if target[:2] in ("a/", "b/") else target
+        elif line.startswith("+") and path is not None:
+            out.setdefault(path, []).append(line[1:])
+    for name, data in untracked.items():
+        out.setdefault(name, []).extend(data.decode("utf-8", "replace").splitlines())
+    return out
+
+
+def defines(name, lines):
+    """True when a non-comment line holds `name` followed by `(`: a definition or a call, not a mention."""
+    pattern = re.compile(rf"(?<![\w.]){re.escape(name)}\s*\(")
+    return any(pattern.search(line) for line in lines if not scope.is_comment(line))
 
 
 def run_tests(root, command, timeout):
@@ -232,9 +245,10 @@ def check(run, now=None):
         if tier >= 2 and st["caps"]["max_subagents"] >= 2:
             reasons.append(f"thinker: no {THINKER} for a tier {tier} diff")
     else:
-        added = added_text(patch, untracked)
+        added = [lines for path, lines in added_by_file(patch, untracked).items()
+                 if scope.is_verifier(path, t["test_command"])]
         reasons += [f"missing test: {tid} {name}" for tid, name in tests.items()
-                    if name not in added and ("test", tid) not in done]
+                    if not any(defines(name, lines) for lines in added) and ("test", tid) not in done]
     return (None, reasons) if reasons else (sha, [])
 
 
