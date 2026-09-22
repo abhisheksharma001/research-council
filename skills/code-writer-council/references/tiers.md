@@ -39,7 +39,11 @@ that is not a git checkout).
 What counts as a verifier file: any path with a `tests` folder in it, a file named `test_*`
 or `*_test.*`, anything under `.github/`, and any path that appears in `test_command`.
 Blank and comment lines never count as a real line, so reformatting a docstring in a test
-does not trip the guard. Markers checked on added lines, case-insensitive: `skip`, `xfail`,
+does not trip the guard. What starts a comment is the file's own language: `#` in Python,
+shell and YAML, `//` and `/*` in the C family, `--` in SQL, `<!--` in HTML and Markdown, and
+`#` or `//` when the extension is one the guard does not know. So a removed `--maxfail=1` line
+of a shell verifier is a real removed line, while a removed `-- seed rows` line of a `.sql`
+one is a comment. Markers checked on added lines, case-insensitive: `skip`, `xfail`,
 `expectedFailure`, `xit(`, `xdescribe(`, `.only(`, `@Ignore`, `@Disabled`.
 
 Globs in `allowed_paths`: `*` and `?` stay inside one folder level, `**` crosses levels,
