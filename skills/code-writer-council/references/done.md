@@ -50,7 +50,7 @@ never. Any later edit gives a new sha, so the DONE line belongs to exactly one d
 | `review: tier <t> diff has no review-<n>.json` | a tier 2 or 3 diff was not reviewed; run the review stage |
 | `unresolved finding: <id>` | fix it and record the fix, or record the user's waiver (below) |
 | `thinker: no thinker.json for a tier <t> diff` | the caps allow the Thinker and it did not run; run it |
-| `missing test: <id> <name>` | add the Thinker's test to the suite under that name, or record the user's waiver |
+| `missing test: <id> <name>` | add the Thinker's test to the suite under that name, in a verifier file, or record the user's waiver |
 
 ## Closing a finding or a Thinker test
 ```bash
@@ -62,7 +62,10 @@ python3 scripts/done.py resolve --run AGI_Research/code/<task_id> --test T-1 --w
 moment and writes `{"finding": "R-1", "how": "fixed", "diff_sha": "<sha>"}` itself. Never
 type a sha. `--waived` takes the user's words as written in the conversation, quoted, not a
 summary; an empty string is refused (rule 7). A Thinker test is never "fixed": its declared
-name is in the diff, or the user waived it. An id that is in no review file or thinker.json
+name is defined in the diff, or the user waived it. Defined means a non-comment added line of a
+verifier file (a `tests` folder, `test_*`, `*_test.*`, or the path in `test_command`) holds the
+name followed by `(`. A comment, a docstring or a new file that only mentions the name does not
+count, so the test has to exist. An id that is in no review file or thinker.json
 is refused, so a typo cannot close anything.
 
 Only a finding with `"severity": "blocking"` needs a line; advisory findings are reported in

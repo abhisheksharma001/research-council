@@ -49,7 +49,9 @@ the test is not worth drafting. A test that only restates what the request says 
 words is not drafted either: the suite already has it, or the change is too small to need it.
 
 Name each test so the name survives review: `test_<what happens>_<when>`. The Supervisor
-adds it to the file your entry names, so that file must sit inside `allowed_paths`.
+adds it to the file your entry names, so that file must sit inside `allowed_paths` and must be a
+verifier file (a `tests` folder, `test_*`, `*_test.*`, or the path the task's `test_command`
+names): `done.py` counts the test only when its name is defined in one of those.
 
 ## Output
 You have no write access. Reply with one JSON object and nothing else; the Supervisor saves

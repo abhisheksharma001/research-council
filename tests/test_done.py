@@ -268,6 +268,21 @@ class DoneTests(unittest.TestCase):
         self.assertEqual(self.cli(run, "resolve", "--test", "T-1", "--waived", "not this task").returncode, 0)
         self.assertRegex(self.cli(run, "check").stdout, SHA)
 
+    def test_a_mention_of_the_test_name_is_not_the_test(self):
+        run = self.new_task()
+        self.fix()
+        self.thinker(run, {"id": "T-1", "name": "test_big_verdict", "file": "tests/test_big.py", "code": "...",
+                           "would_fail_because": "..."})
+        self.append("app/main.py", "# test_big_verdict() belongs here\n")
+        self.write("app/drafts.py", 'DRAFTED = "test_big_verdict()"\n')
+        self.assertEqual(self.cli(run, "check").stdout, "NOT DONE\nmissing test: T-1 test_big_verdict\n")
+        self.write("tests/test_big.py", "# test_big_verdict() goes below\n")
+        self.assertEqual(self.cli(run, "check").stdout, "NOT DONE\nmissing test: T-1 test_big_verdict\n")
+        self.write("tests/test_big.py", "def helper_test_big_verdict():\n    return 1\n")
+        self.assertEqual(self.cli(run, "check").stdout, "NOT DONE\nmissing test: T-1 test_big_verdict\n")
+        self.write("tests/test_big.py", "def test_big_verdict():\n    assert True\n")
+        self.assertRegex(self.cli(run, "check").stdout, SHA)
+
     # bad input
     def test_finding_id_in_two_review_files_is_exit_1(self):
         run = self.new_task()
