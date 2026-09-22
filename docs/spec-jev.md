@@ -696,6 +696,47 @@ read an untracked or ignored file; correct any path rather than un-backticking a
 change the convention in `CLAUDE.md` beyond naming where it is enforced and which names go plain;
 skip a file to make the suite green.
 
+### S-68 — the phone guard stops a phone number, not a date
+
+**PR:** one.
+**Depends on:** S-52.
+**Research:** R-9 answered here, by measurement on this repository's own runs.
+**Files:** `scripts/judge.py`, `tests/test_judge.py`, `docs/research.md`, `docs/spec-jev.md`.
+**Today:** `scripts/judge.py` `EGRESS` holds `("phone", re.compile(r"\+?\d[\d\s().-]{8,}\d"))`,
+which needs eight digits or separators between a first and a last digit, so eight digits in total
+are enough to stop a state. R-9 was opened at the time the pattern was written and left for S-53's
+exporter to count; the count needs no exporter and no call, because `build_claim_state` and the two
+run folders on disk are enough. Measured on all 57 claims in AGI_Research/runs/: the pattern stops
+37 of them, 65%, over 54 matches of 22 distinct spans, and not one span is a phone number. Twenty-
+eight are the ISO date 2026-09-09, sixteen are arXiv ids of the shape 2601.15195, one is the
+benchmark range 80.9--95.2. The guard is not protecting anything on this repository's data; it is
+turning the judge off, which is what R-9 said to check for.
+**Change:** the phone pattern requires ten digits, not eight characters:
+`re.compile(r"\+?\d(?:[\s().-]*\d){9,}")`. Ten is the length of a number that can be dialled —
+a North American number without its country code — and E.164 allows fifteen, so a shorter run of
+digits is not a phone number whatever its punctuation. The separator class no longer holds `\d`,
+which is what keeps the rule linear: the optional separators and the digit that follows them can
+never match the same character, so there is no nested quantifier to back off through on a 60000-
+character state. Measured the same way as the count above: all thirteen written forms of a real
+number in the test still stop (`+1 (555) 123-4567`, `(555) 123 4567`, `5551234567`,
+`+44 20 7946 0958` and the rest), the nine non-phone forms stop none, and the 57 real claims fall
+from 37 stopped to 1. The one that stays is a git log excerpt, `8aaece4 2026-09-09 06:27:27 +0530`,
+where a date, a time and a timezone offset run together into eleven digits; it is left stopped,
+because every narrowing that clears it — a single separator between digits, a cap on the span —
+was measured to let a real `(555) 123 4567` through, and a guard that fails open is the one failure
+this direction cannot take. The `RESEARCH R-9` comment above the pattern goes, and R-9 is answered
+with the numbers and the residual.
+**Acceptance:** WHEN the assembled state carries `2026-09-09`, an arXiv id or any run of fewer than
+ten digits and nothing else THEN `egress_check` SHALL return None, and WHEN it carries a written
+phone number in any of the forms `+1 (555) 123-4567`, `(555) 123 4567`, `555-123-4567`,
+`+44 20 7946 0958` or `5551234567` THEN `egress_check` SHALL return `egress phone`.
+**Verify:** `python3 -m unittest tests.test_judge -v` → pass; restore the eight-character pattern →
+exactly the new date test fails; widen the rule to nine digits → the new ten-digit boundary test
+fails; `python3 -m unittest discover -s tests` → OK.
+**Must not:** relax any other `EGRESS` pattern or the order the guards run in; let a written phone
+number through to make the date pass; add a denylist of date or identifier shapes; make the private-
+record check run later than it does; call the network.
+
 ## Status
 | step | state | learned |
 |---|---|---|

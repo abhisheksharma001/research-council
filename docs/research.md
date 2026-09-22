@@ -138,8 +138,19 @@ off, and the pattern should be narrowed to digit runs that are not separated by 
 yet. A false stop is safe in the egress direction: it prints `skipped` and the run proceeds.
 **Review:** none. The `cases` exporter in S-53 prints how many records each guard excluded, so
 the number is a by-product of the step that already has to run.
-**Status:** open
-**Answer:**
+**Status:** answered 2026-09-22 in S-68 (PR #68)
+**Answer:** 65%, and not one of them a phone number. The exporter was not needed: `build_claim_state`
+and the two run folders under AGI_Research/runs/ were already enough to count it. Measured over all
+57 claims on `main` 2a48552 — the pattern stopped 37, with 54 matches of 22 distinct spans. Twenty-
+eight of those spans are the ISO date 2026-09-09, sixteen are arXiv ids of the shape 2601.15195, one
+is the benchmark range 80.9--95.2, and none is a written telephone number. So the guard was not
+protecting this repository's data, it was switching the judge off for two runs in three, which is
+what this flag was opened to check for. Narrowed in S-68 to ten digits, the shortest dialable number
+(a North American one without its country code; E.164 caps at fifteen), which leaves 1 of 57 claims
+stopped and keeps all twelve written forms of a real number in `tests/test_judge.py`. The one
+remaining stop is honest rather than fixed: the git log excerpt `8aaece4 2026-09-09 06:27:27 +0530`
+runs a date, a time and a timezone offset together into eleven digits, and every rule measured that
+cleared it also let `(555) 123 4567` through.
 
 ### R-10 — What shape does a Jev choice or score answer arrive in?
 
