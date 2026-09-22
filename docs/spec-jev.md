@@ -510,6 +510,36 @@ is not the outstanding one.
 **Must not:** change the Elo arithmetic, the blinding, or any exit-code meaning; refuse a rematch of
 a matchup that has a recorded result; write to `pairs.jsonl` on a refusal; give `record` a new rule.
 
+### S-63 — fence.py: the tournament files are the Supervisor's, and council.md says when not to write
+
+**PR:** one.
+**Depends on:** nothing.
+**Research:** none.
+**Files:** `scripts/fence.py`, `tests/test_fence.py`,
+`skills/research-council/references/council.md`, `docs/bugs.md` (row 17).
+**Today:** `fence.py` compares every file in the run folder against the snapshot except
+`journal.jsonl`, `judge.jsonl` and the `fence/` folder. `pairs.jsonl` and `comparisons.jsonl` are
+written by `scripts/rank.py` and by nothing else — no council role has Bash, and neither file is any
+role's declared output — but they are compared, so a `rank.py pair` run by the Supervisor between
+the snapshot and the check is reported as `violation: ranking wrote pairs.jsonl` (bug 17, seen in
+the 2026-09-17 run). The reader of that line is told the Ranking role wrote a file it has no path
+to write. Nothing in `references/council.md` says not to run a run-folder-writing script while a
+role is out, either, so the Supervisor had no rule to follow.
+**Change:** `SKIP` gains `pairs.jsonl` and `comparisons.jsonl`, which makes it the set of files only
+the Supervisor's own scripts write, and `fence.py`'s docstring says that is what it is. The
+"After every spawn" paragraph of `references/council.md` names the four excluded files instead of
+one, and the "Every spawn" block gains the ordering rule: draw the pair before taking the snapshot,
+and run no run-folder-writing script between the snapshot and the check.
+**Acceptance:** WHEN `pairs.jsonl` or `comparisons.jsonl` changes between `fence.py snapshot --role
+ranking` and `fence.py check --role ranking` THEN the check SHALL print `ok` and exit 0, and WHEN
+`hypotheses.json` changes in the same window THEN it SHALL still print a violation and exit 2.
+**Verify:** `python3 -m unittest tests.test_fence -v` → pass; drop the two names from `SKIP` → the
+new test fails; `python3 -m unittest discover -s tests` → OK; `python3 scripts/validate_skill.py
+skills/research-council` → OK.
+**Must not:** exempt `hypotheses.json`, `objections.json`, `meta.md`, `evidence.jsonl` or
+`claims.jsonl` from the comparison; change what any role is allowed to write; let `fence.py` delete
+or restore a file.
+
 ## Status
 | step | state | learned |
 |---|---|---|
