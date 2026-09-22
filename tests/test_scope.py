@@ -197,12 +197,13 @@ class ScopeTests(unittest.TestCase):
                    "    if not rows:\n        sys.exit(1)\n")
         r = self.cli(run)
         self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
-        self.write("tests/test_new.py",
-                   'import unittest\n\n\n@unittest.skip("later")\ndef test_x(): pass\n')
-        r = self.cli(run)
-        self.assertEqual(r.returncode, 2)
-        self.assertEqual(r.stdout,
-                         'verifier-edit: tests/test_new.py: added \'skip\' marker: @unittest.skip("later")\n')
+        for line, reason in (('@unittest.skip("later")', 'added \'skip\' marker: @unittest.skip("later")'),
+                             ("xdescribe()", "added 'xdescribe(' marker: xdescribe()"),
+                             (".only(fn)", "added '.only(' marker: .only(fn)")):
+            self.write("tests/test_new.py", line + "\n")
+            r = self.cli(run)
+            self.assertEqual(r.returncode, 2, line)
+            self.assertEqual(r.stdout, f"verifier-edit: tests/test_new.py: {reason}\n", line)
 
     def test_a_comment_prefix_belongs_to_the_files_language(self):
         run = self.new_task(allowed_paths=["tests/**", "run_tests.sh"], test_command="bash run_tests.sh")
