@@ -93,6 +93,16 @@ class FenceTests(unittest.TestCase):
         self.assertEqual(fence.violations(self.run, "reflection"), [])
         self.assertEqual(self.cli("check", "reflection").returncode, 0)
 
+    def test_tournament_files_written_during_a_spawn_are_never_compared(self):
+        fence.snapshot(self.run, "ranking")
+        (self.run / "pairs.jsonl").write_text('{"pair_id": "P-1", "a": "H1", "b": "H2"}\n')
+        (self.run / "comparisons.jsonl").write_text('{"pair_id": "P-1", "winner": "A"}\n')
+        self.assertEqual(fence.violations(self.run, "ranking"), [])
+        self.assertEqual(self.cli("check", "ranking").returncode, 0)
+        (self.run / "hypotheses.json").write_text('{"hypotheses": []}')
+        self.assertEqual(fence.violations(self.run, "ranking"), [("wrote", "hypotheses.json")])
+        self.assertEqual(self.cli("check", "ranking").returncode, 2)
+
     def test_check_deletes_nothing(self):
         fence.snapshot(self.run, "reflection")
         (self.run / "extra.txt").write_text("hello")
@@ -122,6 +132,18 @@ class CouncilFenceBlock(unittest.TestCase):
         self.assertIn("scripts/fence.py snapshot --run <run> --role <role>", block)
         self.assertIn("scripts/fence.py check --run <run> --role <role>", block)
         self.assertNotIn("this listing is the fence", block)
+
+    def test_the_block_forbids_a_run_folder_write_between_snapshot_and_check(self):
+        block = self.block()
+        self.assertIn("Run no script that writes into the run folder between the snapshot and the check.",
+                      block)
+        pair = block.index("scripts/rank.py pair")
+        self.assertLess(pair, block.index("scripts/fence.py snapshot"))
+
+    def test_the_excluded_files_named_in_the_prose_are_the_ones_the_script_skips(self):
+        block = self.block()
+        for name in sorted(fence.SKIP):
+            self.assertIn(f"`{name}`", block)
 
 
 

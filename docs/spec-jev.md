@@ -510,6 +510,36 @@ is not the outstanding one.
 **Must not:** change the Elo arithmetic, the blinding, or any exit-code meaning; refuse a rematch of
 a matchup that has a recorded result; write to `pairs.jsonl` on a refusal; give `record` a new rule.
 
+### S-63 — fence.py: the tournament files are the Supervisor's, and council.md says when not to write
+
+**PR:** one.
+**Depends on:** nothing.
+**Research:** none.
+**Files:** `scripts/fence.py`, `tests/test_fence.py`,
+`skills/research-council/references/council.md`, `docs/bugs.md` (row 17).
+**Today:** `fence.py` compares every file in the run folder against the snapshot except
+`journal.jsonl`, `judge.jsonl` and the `fence/` folder. `pairs.jsonl` and `comparisons.jsonl` are
+written by `scripts/rank.py` and by nothing else — no council role has Bash, and neither file is any
+role's declared output — but they are compared, so a `rank.py pair` run by the Supervisor between
+the snapshot and the check is reported as `violation: ranking wrote pairs.jsonl` (bug 17, seen in
+the 2026-09-17 run). The reader of that line is told the Ranking role wrote a file it has no path
+to write. Nothing in `references/council.md` says not to run a run-folder-writing script while a
+role is out, either, so the Supervisor had no rule to follow.
+**Change:** `SKIP` gains `pairs.jsonl` and `comparisons.jsonl`, which makes it the set of files only
+the Supervisor's own scripts write, and `fence.py`'s docstring says that is what it is. The
+"After every spawn" paragraph of `references/council.md` names the four excluded files instead of
+one, and the "Every spawn" block gains the ordering rule: draw the pair before taking the snapshot,
+and run no run-folder-writing script between the snapshot and the check.
+**Acceptance:** WHEN `pairs.jsonl` or `comparisons.jsonl` changes between `fence.py snapshot --role
+ranking` and `fence.py check --role ranking` THEN the check SHALL print `ok` and exit 0, and WHEN
+`hypotheses.json` changes in the same window THEN it SHALL still print a violation and exit 2.
+**Verify:** `python3 -m unittest tests.test_fence -v` → pass; drop the two names from `SKIP` → the
+new test fails; `python3 -m unittest discover -s tests` → OK; `python3 scripts/validate_skill.py
+skills/research-council` → OK.
+**Must not:** exempt `hypotheses.json`, `objections.json`, `meta.md`, `evidence.jsonl` or
+`claims.jsonl` from the comparison; change what any role is allowed to write; let `fence.py` delete
+or restore a file.
+
 ## Status
 | step | state | learned |
 |---|---|---|
@@ -524,3 +554,4 @@ a matchup that has a recorded result; write to `pairs.jsonl` on a refusal; give 
 | S-60 | done 2026-09-22 (PR #60) | Bug 27's second half, and the half that fails closed: the substring test never let a weakening through, it invented ones. Writing the step from the `skip`/`skipped` case alone produced a rule for the word-shaped markers only; running `verifier_reasons` on real lines before touching the code found `sys.exit(1)` reported as an `xit(` marker, the same defect on a call-shaped marker's leading edge, so the step block was corrected first and the fix became one rule: a word boundary on each edge of the marker whose own character there is a word character, and on no other edge. That is why `.only(` and `xdescribe(` keep working (`.` and `(` are not word characters, so they get no boundary) while `@ignore` gets one only on its right. The boundary lives in a compiled pattern per marker built at import, so `WEAKENING_MARKERS` stays the single list a reader edits and the printed reason still names the marker string, not the regex. The test asserts both directions in one new file — `r.skipped`, `skip_list` and `sys.exit(1)` silent, `@unittest.skip(` still reported — because a marker fix that only proves the negative would pass with the matcher deleted. Suite 494 -> 495; bug 27 now closed in full. |
 | S-61 | done 2026-09-22 (PR #61) | A docs bug, and the only kind of step here with no guard to break: nothing in code enforces either sentence, so the proof is that both claims were read off the system rather than off the bug row. Both were. `~/AGI_Research/` really is a bibliography corpus, and the run folder for goal id 622aeb79 really holds 40 evidence records and 27 claims — the same numbers the table's five per-step rows sum to, which is two independent confirmations of one count and the reason the totals could be written down at all. The third part of bug 29 could not be closed the same way: the 2026-09-10 section belongs to a different run whose folder is gone, so its `9 claim records` was left exactly as written and marked unverifiable instead of being corrected to the 11 the bug row claims. Correcting it from the bug row would have been restating an unchecked number as a fact, which is the failure this step exists to fix. `AGI_Research/runs/622aeb79-.../` was written plain in the end: a run folder is gitignored, so backticking it would break the convention that a backticked path exists in a checkout. |
 | S-62 | done 2026-09-22 (PR #62) | The fix is one rule with two effects, and both are needed because `choose` is a preference, not a filter: reading `pairs.jsonl` into `_opponents` only moves an outstanding matchup to the back of the queue, so with two open hypotheses and one pair outstanding it is still returned and has to be refused outright. The refusal could not be the whole fix either — refusing on *any* outstanding pair would strand a run whose Ranking spawn never replied, with no cancel path in the script — so it refuses the specific matchup and only when nothing else is drawable. Two existing tests turned out to pin the defect while testing something else entirely: both reissued the same matchup, one to prove a seed gives a deterministic A/B order and one to loop six draws over the last open matchup. Neither needed the reissue: the first only needed `pairs.jsonl` cleared between draws, and the second reads better recording each pair first, which incidentally proves the rematch case this step's Must-not protects. `pair` does not bump `comparisons` — only `record` does — which is why a second draw with four open hypotheses still starts from the same first hypothesis and simply takes the next opponent. Suite 495 -> 497. |
+| S-63 | done 2026-09-22 (PR #63) | The fence change is safe for a reason worth writing down rather than assumed: `elo` and `comparisons` live in `hypotheses.json`, not in `comparisons.jsonl`, so excluding the two tournament files costs the detector nothing a forged rating would need, and the new test asserts a `hypotheses.json` write in the same window is still a violation. Adding the two names also turned `SKIP` from a list into a definition — the files only the Supervisor's own scripts write — which is what made the second prose test possible: it iterates `fence.SKIP` and requires each name in council.md, so the next addition to SKIP cannot go undocumented. The ordering half could not be tested at all until that test was written; a prose rule with no test is how bug 17's other half survived two runs. The pair is drawn above the snapshot rather than merely 'not after it', because the blinded JSON has to be in the prompt anyway: the correct order was already forced by the data flow and nobody had written it down. Suite 497 -> 500. |
