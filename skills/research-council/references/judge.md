@@ -28,6 +28,11 @@ or stop a fetch. Its answers are data you read beside your own.
   `journal.jsonl` is, so Reflection stays blind and still objects on its own reading.
 - Nothing but a public record leaves the machine. One cited record whose `access_scope` is not
   `public` stops the call before any request body is built.
+- A claim battery call sends the claim's statement, scope and type, and for each cited record its
+  id, its locator and its excerpt. It does not send the source URL: no claim question asks who
+  published the page, and a URL carries long numeric ids the phone guard cannot tell from a phone
+  number. An evidence battery call does send the page's URL, because that is what `strength` asks
+  about.
 
 ## Running it
 

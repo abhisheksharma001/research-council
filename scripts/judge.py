@@ -298,8 +298,11 @@ def build_claim_state(run, claim_id):
     cited = [records[eid] for eid in claim["evidence_ids"] if eid in records]
     state = {
         "claim": {f: claim[f] for f in CLAIM_STATE_FIELDS},
-        "evidence": [{"id": r["evidence_id"], "uri": r["source_uri"],
-                      "locator": r["locator"], "excerpt": r["excerpt"]} for r in cited],
+        # No source_uri: no claim question asks who published the page, and a URL is where a
+        # long numeric identifier lives, which the phone guard cannot tell from a phone number
+        # (bug 31). build_evidence_state still carries it, because host_rule reads it.
+        "evidence": [{"id": r["evidence_id"], "locator": r["locator"],
+                      "excerpt": r["excerpt"]} for r in cited],
     }
     return state, cited
 
