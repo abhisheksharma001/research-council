@@ -153,9 +153,27 @@ class JudgeTests(Case, unittest.TestCase):
         self.assertFalse((self.run / judge.FILENAME).exists())
 
     def test_a_home_path_in_the_state_is_an_egress_skip(self):
-        self.claim(uri="file:///Users/someone/notes/booking.md")
+        self.claim(excerpt=EXCERPT + " Exported from /Users/someone/notes/booking.md.")
         line, _ = judge.run_battery(self.run, "claim", "C-1", opener=explode)
         self.assertEqual(line, "judge: claim C-1 skipped: egress home path")
+
+    def test_a_post_id_in_the_source_url_does_not_stop_a_claim_call(self):
+        """Bug 31: the claim state does not carry the uri, so a nineteen-digit post id in it is
+        not a digit run the phone guard can see, and it never reaches the request body."""
+        self.claim(uri="https://x.com/someone/status/2100968022110269841")
+        sent = {}
+
+        def opener(request, timeout=None):
+            sent["body"] = json.loads(request.data.decode("utf-8"))
+            return _Response({"model": "jev-1.13.0",
+                              "answers": {"supported": 0.91, "contradicted": 0.02,
+                                          "wider": 0.05, "inferred": 0.07},
+                              "usage": {"input_tokens": 1000}})
+
+        with self.with_key():
+            line, _ = judge.run_battery(self.run, "claim", "C-1", opener=opener)
+        self.assertEqual(line, "judge: claim C-1 unsure")
+        self.assertNotIn("2100968022110269841", json.dumps(sent["body"]["state"]))
 
     def test_an_address_in_an_excerpt_is_an_egress_skip(self):
         self.claim(excerpt=EXCERPT + " Ask support@example.org for the code format.")
@@ -296,7 +314,8 @@ class JudgeTests(Case, unittest.TestCase):
         state, cited = judge.build_claim_state(self.run, "C-1")
         self.assertEqual(sorted(state), ["claim", "evidence"])
         self.assertEqual(sorted(state["claim"]), ["claim_type", "scope", "statement"])
-        self.assertEqual(sorted(state["evidence"][0]), ["excerpt", "id", "locator", "uri"])
+        # Bug 31: no "uri" — no claim question asks who published the page.
+        self.assertEqual(sorted(state["evidence"][0]), ["excerpt", "id", "locator"])
         self.assertEqual([r["evidence_id"] for r in cited], ["E-1"])
 
     # --- decisions and thresholds ---------------------------------------------------------
@@ -394,6 +413,14 @@ class EvidenceBatteryTests(Case, unittest.TestCase):
                                          "locator": "Section 3", "excerpt": excerpt,
                                          "access_scope": scope})
         return record["evidence_id"]
+
+    def test_a_home_path_in_the_source_url_still_stops_an_evidence_call(self):
+        """The guard itself is unchanged by bug 31: the evidence battery does send the page uri,
+        because `strength` asks who published it, so the pattern still reads it there."""
+        self.page(uri="file:///Users/someone/notes/report.md")
+        result = self.cli("run", "--run", self.run, "--battery", "evidence", "--id", "E-1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "judge: evidence E-1 skipped: egress home path")
 
     # --- the host rule, which answers strength with no call --------------------------------
 

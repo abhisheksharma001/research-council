@@ -96,6 +96,13 @@ unchallenged, by construction. Even at this bar, Jev in shadow mode would have f
 held-out unsupported claims one council round earlier. What stops a gate is the other number:
 about 3 in 8 good claims would be flagged as well.
 
+## Superseded in part by S-72 (2026-09-22)
+Every number on this page was measured on a claim state that carried each record's source URL.
+S-72 removed it (bug 31), so the cached answers in the calibration cache no longer describe the
+state the judge sends today, and a fresh set of calls is needed before any of these rates is
+quoted again. The direction of the change is known but its size is not: 26 of the 33 claims the
+phone guard stopped across the five runs become sendable, and the state is 11% shorter.
+
 ## What would settle it
 - At least 20 supported eval cases, which means about 70 positives in total. That needs more
   Reflection-reviewed runs or a hand-labelled set.

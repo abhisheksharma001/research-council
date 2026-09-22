@@ -830,6 +830,30 @@ failure naming task.md; add a kind to `journal.KINDS` → one failure per table.
 **Must not:** change budget.py, journal.py or any cap; start S-56; edit another step's row except
 the one S-51 sentence.
 
+### S-72 — the claim state carries what the questions ask about
+
+**PR:** one. **Depends on:** S-52. **Research:** none; R-9 is answered and this is the other half
+of the same measurement.
+**Files:** `scripts/judge.py`, `tests/test_judge.py`, `tests/fixtures/judge/synthetic-claims.jsonl`,
+`skills/research-council/references/judge.md`, `docs/bugs.md` (row 31).
+**Today:** `build_claim_state` puts `uri` in every evidence entry. None of the four claim questions
+mentions the source URL, and a URL is where a long numeric identifier lives, so the phone guard
+stops the judge on 33 of the 191 claims in the five readable runs; 27 of those 33 match only
+inside a `uri`, and no matched span is a telephone number.
+**Change:** drop `uri` from the claim state's evidence entries, leaving `id`, `locator` and
+`excerpt`. `build_evidence_state` is untouched: `host_rule` reads `state["page"]["uri"]` and the
+`strength` question asks who published the page. Drop the same key from the 30 lines of
+`tests/fixtures/judge/synthetic-claims.jsonl` so a fixture state and a real one have one shape.
+judge.md's state row names the three fields.
+**Acceptance:** WHEN a claim cites an evidence record whose `source_uri` ends in a nineteen-digit
+post id and whose excerpt holds no long digit run THEN `judge.py run --battery claim` SHALL NOT
+print `skipped: egress phone`; and WHEN a claim state is built THEN no evidence entry SHALL carry
+a `uri` key.
+**Verify:** `python3 -m unittest tests.test_judge -v` → pass; restore `uri` to the state → exactly
+the new tests fail; restore with `git checkout -- scripts/judge.py`.
+**Must not:** weaken any `EGRESS` pattern; change `build_evidence_state`; send a record whose
+`access_scope` is not `public`; claim the S-53 calibration numbers still describe this state.
+
 ## Status
 | step | state | learned |
 |---|---|---|
