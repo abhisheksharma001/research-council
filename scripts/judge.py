@@ -75,9 +75,11 @@ STATE_MAX = 60000
 NUMBER = re.compile(r"\d[\d,.]*")
 EGRESS = (
     ("address", re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")),
-    # RESEARCH R-9 (confidence: medium): a version list or a benchmark table looks like this too;
-    # S-53's exporter counts how often it stops an ordinary excerpt.
-    ("phone", re.compile(r"\+?\d[\d\s().-]{8,}\d")),
+    # Ten digits is the shortest dialable number (NANP without its country code; E.164 caps at
+    # fifteen), so a shorter run is a date or an identifier, not a phone number. The separator
+    # class excludes digits so the optional separators and the digit after them can never match
+    # the same character, which keeps the scan linear on a 60000-character state.
+    ("phone", re.compile(r"\+?\d(?:[\s().-]*\d){9,}")),
     ("key", re.compile(r"apikey_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9]{20,}"
                        r"|AKIA[0-9A-Z]{16}|Bearer\s+\S{16,}")),
     ("home path", re.compile(r"/Users/[^/\s]+")),

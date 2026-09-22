@@ -696,6 +696,47 @@ read an untracked or ignored file; correct any path rather than un-backticking a
 change the convention in `CLAUDE.md` beyond naming where it is enforced and which names go plain;
 skip a file to make the suite green.
 
+### S-68 — the phone guard stops a phone number, not a date
+
+**PR:** one.
+**Depends on:** S-52.
+**Research:** R-9 answered here, by measurement on this repository's own runs.
+**Files:** `scripts/judge.py`, `tests/test_judge.py`, `docs/research.md`, `docs/spec-jev.md`.
+**Today:** `scripts/judge.py` `EGRESS` holds `("phone", re.compile(r"\+?\d[\d\s().-]{8,}\d"))`,
+which needs eight digits or separators between a first and a last digit, so eight digits in total
+are enough to stop a state. R-9 was opened at the time the pattern was written and left for S-53's
+exporter to count; the count needs no exporter and no call, because `build_claim_state` and the two
+run folders on disk are enough. Measured on all 57 claims in AGI_Research/runs/: the pattern stops
+37 of them, 65%, over 54 matches of 22 distinct spans, and not one span is a phone number. Twenty-
+eight are the ISO date 2026-09-09, sixteen are arXiv ids of the shape 2601.15195, one is the
+benchmark range 80.9--95.2. The guard is not protecting anything on this repository's data; it is
+turning the judge off, which is what R-9 said to check for.
+**Change:** the phone pattern requires ten digits, not eight characters:
+`re.compile(r"\+?\d(?:[\s().-]*\d){9,}")`. Ten is the length of a number that can be dialled —
+a North American number without its country code — and E.164 allows fifteen, so a shorter run of
+digits is not a phone number whatever its punctuation. The separator class no longer holds `\d`,
+which is what keeps the rule linear: the optional separators and the digit that follows them can
+never match the same character, so there is no nested quantifier to back off through on a 60000-
+character state. Measured the same way as the count above: all thirteen written forms of a real
+number in the test still stop (`+1 (555) 123-4567`, `(555) 123 4567`, `5551234567`,
+`+44 20 7946 0958` and the rest), the nine non-phone forms stop none, and the 57 real claims fall
+from 37 stopped to 1. The one that stays is a git log excerpt, `8aaece4 2026-09-09 06:27:27 +0530`,
+where a date, a time and a timezone offset run together into eleven digits; it is left stopped,
+because every narrowing that clears it — a single separator between digits, a cap on the span —
+was measured to let a real `(555) 123 4567` through, and a guard that fails open is the one failure
+this direction cannot take. The `RESEARCH R-9` comment above the pattern goes, and R-9 is answered
+with the numbers and the residual.
+**Acceptance:** WHEN the assembled state carries `2026-09-09`, an arXiv id or any run of fewer than
+ten digits and nothing else THEN `egress_check` SHALL return None, and WHEN it carries a written
+phone number in any of the forms `+1 (555) 123-4567`, `(555) 123 4567`, `555-123-4567`,
+`+44 20 7946 0958` or `5551234567` THEN `egress_check` SHALL return `egress phone`.
+**Verify:** `python3 -m unittest tests.test_judge -v` → pass; restore the eight-character pattern →
+exactly the new date test fails; widen the rule to nine digits → the new ten-digit boundary test
+fails; `python3 -m unittest discover -s tests` → OK.
+**Must not:** relax any other `EGRESS` pattern or the order the guards run in; let a written phone
+number through to make the date pass; add a denylist of date or identifier shapes; make the private-
+record check run later than it does; call the network.
+
 ## Status
 | step | state | learned |
 |---|---|---|
@@ -715,3 +756,4 @@ skip a file to make the suite green.
 | S-65 | done 2026-09-22 (PR #65) | S-57 asked for a `repair.py` doing a lossless normalisation pass with every repair journaled, and the step that replaced it is smaller because normalisation is the expensive half: rewriting a role's text before storing it makes "lossless" a claim to argue, while a tolerant *reader* leaves nothing to argue about — the test compares the stored bytes with what was sent. No new module, no journal plumbing, one import each of `re` and `string`. Bug 19 turned out to be still open despite its row reading "queued under S-33": S-33 shipped the shape validation and never the lenient parsing, so `json.loads(raw)` was still strict at `main`. A bug row that names a step as its fix is not evidence the fix landed, which is worth checking on every row that points at a merged step. Two guards had to be proved not to loosen: a duplicated section and a missing one are still refusals, and break 5 exists only to show the duplicate check survived. Break 1 fails two tests because filtering back to the exact heading also hides a decorated duplicate from the counter. `strict=False` adds no reach — the same bytes as `\\u` escapes were always accepted — which is the reason it is safe rather than merely convenient. Suite 503 -> 507. |
 | S-66 | done 2026-09-22 (PR #66) | Two steps one after another made the opposite call about the same kind of leniency, and the difference is the whole lesson: S-65 stored a role's prose exactly as sent because prose has no correct form, while a three-member enum does, and `SCORE[winner]`, `winner_id`, `cycles` and the report all index it by that spelling — so here the canonical key is stored and tolerance stops at the door. Storing what the role typed would have moved the defect downstream. The CLI was never the path worth fixing: argparse already refuses `--winner a` at parse time and a human can retype it, while `council.accept` hands `reply["winner"]` straight to `record` and a refusal there burns the reservation, which is why the council round-trip test matters more than the rank one and why break 1 fails both. A permissive resolver is the obvious way this goes wrong, so the refusal test asserts `maybe`, the empty string, `A B`, `None` and `1` directly rather than trusting the loop. Suite 507 -> 510; bug 28 now closed in full. |
 | S-67 | done 2026-09-22 (PR #67) | The rule had to be narrowed twice, and both times by a case the repository already held rather than by reasoning. First: `resolves` asked the filesystem, so the eleven sentences naming AGI_Research/ passed here and would have failed in CI, because that folder is gitignored and exists only on the machine that wrote them — what a fresh checkout holds is what `git ls-files` says, and nothing else. Second: `skills/research-council/SKILL.md` says to add the line `AGI_Research/` to a workspace .gitignore, `tests/test_goal.py` pins that sentence with its backticks, and un-backticking it failed that test. The backticks are right there: the span is a literal to type, not a path to open. That is the same category as the bare filename the first draft already excluded, so the rule became one rule — a claim needs a separator between two segments — which reverted sixteen edits and dropped the count from twenty-eight to twelve. Proof-by-breaking found two dead code paths the way it is supposed to: a SKILL.md-ancestor resolution whose every case the unique-tail rule already covered, and a `rstrip` that `normpath` already did; both were deleted rather than given a test, because the alternative was a fixture invented to justify code nothing needed. The restore in break 1 then ate an uncommitted improvement — `git checkout --` brings back the committed file, which is the S-1 hazard this standard names, and it bites on an amend-in-progress exactly as it does on an unstaged step. Left in place and written into the PR rather than engineered away: references/manifest.json resolves by tail to a test fixture, which is a real example library unit, so the promise holds while the tail rule cannot tell it from the unit the prose means. Suite 510 -> 515. |
+| S-68 | done 2026-09-22 (PR #68) | The flag said the number was a by-product of S-53's exporter, and it was not: `build_claim_state` and the two run folders under AGI_Research/runs/ already held the answer, so a research flag parked behind a blocked step was answerable today for nothing. That is the reusable part — before accepting that a flag waits on a step, check whether the step's *output* is what the flag needs or only its *occasion*. Measuring first also changed the shape of the fix. The count came out at 37 of 57 claims stopped, 65%, over 54 matches of 22 distinct spans with not one a phone number, which is not "some false stops exist" as the flag guessed at medium confidence but a guard that was switching the judge off for two runs in three. Reading the 22 spans rather than the count is what gave the rule: 28 ISO dates and 16 arXiv ids are all shorter than ten digits, and ten is a fact about telephone numbering rather than a shape drawn from this data, which is why it is a rule and not a denylist. Two narrower candidates were measured and both fail open — requiring a single separator between digits, or no doubled separator, each lets `(555) 123 4567` through, because `) ` is two separators — so the first rule that passed all thirteen written forms was kept even though it leaves one residual, the git log excerpt `8aaece4 2026-09-09 06:27:27 +0530` where a date, a time and an offset run into eleven digits. Leaving that stopped is the whole direction of this guard: a false stop costs a skipped line on today's path, a false pass sends a phone number to a vendor. The separator class dropping `\d` is not cosmetic either — it is what makes the repeated group unambiguous against the digit after it, so the scan stays linear on a 60000-character state rather than becoming a nested quantifier a crafted excerpt could stall. Break 1 and break 2 each fail two tests because the boundary test asserts both sides of the same rule. Audited on the way: row 24 of `docs/bugs.md` still reads "PR pending" although S-49 merged as PR #51, the same staleness S-49 itself found on row 23. Suite 515 -> 519. |

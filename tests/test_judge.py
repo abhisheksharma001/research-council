@@ -161,6 +161,30 @@ class JudgeTests(Case, unittest.TestCase):
         line, _ = judge.run_battery(self.run, "claim", "C-1", opener=explode)
         self.assertEqual(line, "judge: claim C-1 skipped: egress address")
 
+    def test_a_written_phone_number_in_an_excerpt_is_an_egress_skip(self):
+        self.claim(excerpt=EXCERPT + " Call the desk on +1 (555) 123-4567 to hold a slot.")
+        line, _ = judge.run_battery(self.run, "claim", "C-1", opener=explode)
+        self.assertEqual(line, "judge: claim C-1 skipped: egress phone")
+
+    def test_every_written_form_of_a_phone_number_is_stopped(self):
+        """The direction this guard may not fail in: a real number must never reach the vendor."""
+        for number in ("+1 (555) 123-4567", "(555) 123 4567", "555-123-4567", "555.123.4567",
+                       "5551234567", "+44 20 7946 0958", "+91 98765 43210", "+1-800-555-0199",
+                       "+33 1 42 68 53 00", "+61 2 9374 4000", "020 7946 0958", "1 (555) 867-5309"):
+            self.assertEqual(judge.egress_check(f"reach us on {number} any day", []),
+                             "egress phone", msg=number)
+
+    def test_a_date_an_identifier_and_a_range_are_not_read_as_a_phone_number(self):
+        """R-9: these stopped 37 of this repository's 57 claims while protecting nothing."""
+        for span in ("2026-09-09", "2601.15195", "80.9--95.2", "2026-02-24", "2512.18470v2",
+                     "v1.13.0 released 2026-09-15", "lines 103-110 and 151-159",
+                     "p95 120.4 ms over 3 600 samples", "0.042 per 1M tokens"):
+            self.assertIsNone(judge.egress_check(f"the note says {span} here", []), msg=span)
+
+    def test_ten_digits_is_the_boundary(self):
+        self.assertIsNone(judge.egress_check("id 123-456-789 filed", []))
+        self.assertEqual(judge.egress_check("id 123-456-7890 filed", []), "egress phone")
+
     def test_no_key_skips_and_writes_nothing(self):
         self.claim()
         result = self.cli("run", "--run", self.run, "--battery", "claim", "--id", "C-1")
