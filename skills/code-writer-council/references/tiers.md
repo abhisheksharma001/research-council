@@ -44,7 +44,9 @@ shell and YAML, `//` and `/*` in the C family, `--` in SQL, `<!--` in HTML and M
 `#` or `//` when the extension is one the guard does not know. So a removed `--maxfail=1` line
 of a shell verifier is a real removed line, while a removed `-- seed rows` line of a `.sql`
 one is a comment. Markers checked on added lines, case-insensitive: `skip`, `xfail`,
-`expectedFailure`, `xit(`, `xdescribe(`, `.only(`, `@Ignore`, `@Disabled`.
+`expectedFailure`, `xit(`, `xdescribe(`, `.only(`, `@Ignore`, `@Disabled`. Each is matched
+as a whole token, so `@unittest.skip(` is a marker while `r.skipped`, `skip_list` and
+`sys.exit(1)` are not.
 
 Globs in `allowed_paths`: `*` and `?` stay inside one folder level, `**` crosses levels,
 and a pattern must match the whole path from the workspace root. `scripts/*.py` allows

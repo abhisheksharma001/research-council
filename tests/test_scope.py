@@ -188,6 +188,23 @@ class ScopeTests(unittest.TestCase):
         self.assertEqual(r.returncode, 2)
         self.assertEqual(r.stdout, "verifier-edit: tests/test_new.py: added 'expectedfailure' marker: @unittest.expectedFailure\n")
 
+    def test_a_weakening_marker_is_matched_as_a_token(self):
+        run = self.new_task(allowed_paths=["tests/**"])
+        self.write("tests/test_new.py",
+                   "import sys\n\n\ndef test_x():\n"
+                   "    rows = [r for r in [] if not r.skipped]\n"
+                   "    self.skip_list = []\n"
+                   "    if not rows:\n        sys.exit(1)\n")
+        r = self.cli(run)
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        for line, reason in (('@unittest.skip("later")', 'added \'skip\' marker: @unittest.skip("later")'),
+                             ("xdescribe()", "added 'xdescribe(' marker: xdescribe()"),
+                             (".only(fn)", "added '.only(' marker: .only(fn)")):
+            self.write("tests/test_new.py", line + "\n")
+            r = self.cli(run)
+            self.assertEqual(r.returncode, 2, line)
+            self.assertEqual(r.stdout, f"verifier-edit: tests/test_new.py: {reason}\n", line)
+
     def test_a_comment_prefix_belongs_to_the_files_language(self):
         run = self.new_task(allowed_paths=["tests/**", "run_tests.sh"], test_command="bash run_tests.sh")
         self.drop_line("run_tests.sh", "--failfast")

@@ -20,6 +20,9 @@ the C family, `--` in SQL, `<!--` in HTML and Markdown, and `#` or `//` when the
 unknown. So a removed `--flag` line of a shell verifier is a real removed line, and a removed
 `-- seed` line of a SQL one is not.
 
+A marker is matched as a whole token, so `@unittest.skip(` is a marker while `r.skipped`,
+`skip_list` and `sys.exit(1)` are not.
+
 With no violation prints `tier: 1|2|3` and `lines: <n>` (tiers.md holds the table).
 Files under AGI_Research/ are the council's own state, never part of the task's diff.
 
@@ -57,6 +60,16 @@ COMMENT_NAMES = {"makefile": HASH, "dockerfile": HASH, "justfile": HASH}
 FALLBACK_COMMENT_STARTS = ("#", "//")
 WEAKENING_MARKERS = ("skip", "xfail", "expectedfailure", "xit(", "xdescribe(", ".only(", "@ignore", "@disabled")
 TIERS = ((10, 1), (100, 2))
+
+
+def marker_pattern(marker):
+    """The marker as a whole token: a word boundary on each edge whose own character is a word one."""
+    left = r"\b" if marker[0].isalnum() or marker[0] == "_" else ""
+    right = r"\b" if marker[-1].isalnum() or marker[-1] == "_" else ""
+    return re.compile(left + re.escape(marker) + right)
+
+
+MARKER_PATTERNS = tuple((marker, marker_pattern(marker)) for marker in WEAKENING_MARKERS)
 
 
 def translate(pattern):
@@ -122,7 +135,7 @@ def verifier_reasons(added, removed, path):
     for line in added:
         if not is_comment(line, path):
             low = line.lower()
-            hits = [m for m in WEAKENING_MARKERS if m in low]
+            hits = [marker for marker, pattern in MARKER_PATTERNS if pattern.search(low)]
             if hits:
                 reasons.append(f"added {hits[0]!r} marker: {line.strip()}")
     return reasons
