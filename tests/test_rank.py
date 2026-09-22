@@ -77,15 +77,32 @@ class RankTests(unittest.TestCase):
     def test_pair_order_follows_seed_and_both_orders_occur(self):
         orders = set()
         for seed in range(12):
-            self.write([hyp(1), hyp(2)])
-            (self.run / rank.PAIRS).unlink(missing_ok=True)
-            rank.pair(self.run, seed)
-            again = rank.pair(self.run, seed)
-            recs = rank._jsonl(self.run / rank.PAIRS)
+            recs = []
+            for _ in range(2):
+                self.write([hyp(1), hyp(2)])
+                (self.run / rank.PAIRS).unlink(missing_ok=True)
+                rank.pair(self.run, seed)
+                recs.append(rank._jsonl(self.run / rank.PAIRS)[0])
             self.assertEqual((recs[0]["a"], recs[0]["b"]), (recs[1]["a"], recs[1]["b"]))
             orders.add((recs[0]["a"], recs[0]["b"]))
-            self.assertEqual(again["pair_id"], "P-2")
         self.assertEqual(orders, {("H1", "H2"), ("H2", "H1")})
+
+    def test_pair_refuses_a_matchup_it_has_issued_and_not_recorded(self):
+        self.write([hyp(1), hyp(2)])
+        rank.pair(self.run, 1)
+        with self.assertRaises(ValueError) as caught:
+            rank.pair(self.run, 2)
+        self.assertIn("P-1", str(caught.exception))
+        self.assertEqual(len(rank._jsonl(self.run / rank.PAIRS)), 1)
+
+    def test_pair_draws_another_matchup_while_one_is_outstanding(self):
+        self.write([hyp(1), hyp(2), hyp(3), hyp(4)])
+        rank.pair(self.run, 1)
+        second = rank.pair(self.run, 2)
+        recs = rank._jsonl(self.run / rank.PAIRS)
+        self.assertEqual(second["pair_id"], "P-2")
+        self.assertEqual({recs[0]["a"], recs[0]["b"]}, {"H1", "H2"})
+        self.assertNotEqual({recs[1]["a"], recs[1]["b"]}, {"H1", "H2"})
 
     def test_pair_prefers_fewest_comparisons_then_highest_rating(self):
         self.write([hyp(1, elo=1250, comparisons=1), hyp(2, elo=1210, comparisons=1),
@@ -180,7 +197,8 @@ class RankTests(unittest.TestCase):
     def test_pair_never_returns_a_stopped_hypothesis(self):
         rank.stop(self.run, "H1", "O-11")
         for seed in range(6):
-            rank.pair(self.run, seed)
+            out = rank.pair(self.run, seed)
+            rank.record(self.run, out["pair_id"], "draw", "rematch of the only open matchup")
         drawn = {x for p in rank._jsonl(self.run / rank.PAIRS) for x in (p["a"], p["b"])}
         self.assertEqual(drawn, {"H2", "H3"})
 

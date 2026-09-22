@@ -477,6 +477,39 @@ changed files exists on disk.
 **Must not:** change any script, test or skill file; restate a count that cannot be read from a run
 folder on this machine; delete a row of the self-run table.
 
+### S-62 — rank.py: an issued pair counts as drawn until it is recorded
+
+**PR:** one.
+**Depends on:** nothing.
+**Research:** none.
+**Files:** `scripts/rank.py`, `tests/test_rank.py`,
+`skills/research-council/references/rank.md`, `docs/bugs.md` (row 16).
+**Today:** `_opponents` builds its id-to-opponents map from `comparisons.jsonl` only, so a pair that
+has been issued into `pairs.jsonl` and not yet judged is invisible to `choose`. Running
+`rank.py pair --seed 1` and then `rank.py pair --seed 2` before recording the first draws the same
+two hypotheses twice, as P-1 and P-2. Judging both would feed one matchup into Elo twice, which is
+what the rating is supposed to be protected from; in the 2026-09-17 run P-2 was left unjudged and
+journaled instead (bug 16). `record` already refuses a pair it has recorded before, but nothing
+refuses issuing one.
+**Change:** an issued pair counts as drawn until it is recorded. `_opponents` reads `pairs.jsonl`
+as well as `comparisons.jsonl`, both of which carry `a` and `b`, so `choose` prefers an opponent the
+hypothesis has not been drawn against rather than one it has not been judged against. Where the
+tournament has no other matchup left — two open hypotheses and one outstanding pair — `choose` still
+returns that matchup, so `pair` refuses it: it looks the chosen matchup up among the issued pairs
+that have no comparison line, and raises `pair <P-n> is already issued for <H-a> vs <H-b> and not
+recorded; record it or judge it first` before writing anything. A matchup whose result is recorded
+can still be drawn again, which is a rematch and not a double count. `references/rank.md` states
+the rule under its existing one-pair-at-a-time heading.
+**Acceptance:** WHEN `pair` is run twice without recording the first result and only two hypotheses
+are open THEN the second call SHALL exit 1 naming the outstanding pair id and `pairs.jsonl` SHALL
+hold one line, and WHEN a third hypothesis is open THEN the second call SHALL draw a matchup that
+is not the outstanding one.
+**Verify:** `python3 -m unittest tests.test_rank -v` → pass; drop `pairs.jsonl` from `_opponents`
+→ the new selection test fails; drop the refusal → the new refusal test fails;
+`python3 -m unittest discover -s tests` → OK.
+**Must not:** change the Elo arithmetic, the blinding, or any exit-code meaning; refuse a rematch of
+a matchup that has a recorded result; write to `pairs.jsonl` on a refusal; give `record` a new rule.
+
 ## Status
 | step | state | learned |
 |---|---|---|
