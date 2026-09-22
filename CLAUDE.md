@@ -6,7 +6,9 @@ and provides a practical handoff or structured JSON for the next agent. Persiste
 with a hard promotion gate; host permissions and provider billing are separate controls.
 
 Working standard: `~/.claude/skills/mystandard/SKILL.md`. Spec and step register: `docs/spec-v1.md`.
-Bugs: `docs/bugs.md`. Decisions: `docs/decisions.md`. Research folder: `~/AGI_Research/`.
+Bugs: `docs/bugs.md`. Decisions: `docs/decisions.md`. Runs are written to
+`AGI_Research/runs/<goal_id>/` inside the workspace the run is pointed at, and that folder is
+gitignored.
 
 ## Invariants (never break; a change to any of these is a decision-log entry, not a step)
 

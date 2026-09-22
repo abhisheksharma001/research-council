@@ -444,6 +444,39 @@ new test fails; `python3 -m unittest discover -s tests` → OK.
 **Must not:** drop or add a marker; change the printed reason's wording; touch the comment
 prefixes (S-59 owns them).
 
+### S-61 — the docs name the run folder that runs actually use
+
+**PR:** one (docs only).
+**Depends on:** nothing.
+**Research:** none.
+**Files:** `CLAUDE.md`, `docs/runs/2026-09-09-self-run.md`, `docs/bugs.md` (row 29).
+**Today:** `CLAUDE.md` ends its pointer list with `Research folder: ~/AGI_Research/`, but no run has
+ever been written there: every run on this machine lives at `AGI_Research/runs/<goal_id>/` inside the
+workspace, and `~/AGI_Research/` is an unrelated bibliography corpus (it holds papers/,
+bibliography.csv and arxiv_meta.json). A reader sent to the wrong folder finds a corpus that
+looks plausible and concludes the runs are missing. Separately, the "What was run" table in
+`docs/runs/2026-09-09-self-run.md` gives a per-step count in several rows (`21 records` at
+05:45-05:46, `14 claims` at 05:46, then `6 records, 4 claims`, `9 new records` and `4 records,
+3 claims` in later rows), with no total anywhere, so the first two read as the run's totals. They are
+not: the run folder `622aeb79-ba7a-4334-b15c-012a283c48c7` holds 40 evidence records and 27 claims,
+which is what those five rows sum to. The 2026-09-10 follow-up section is a different run
+(`a9963323-9ff7-4a5e-9b63-549bc88626ab`) whose folder is no longer on disk, so its `12 evidence
+records, 9 claim records` cannot be re-checked here and is left as written, marked unverifiable.
+**Change:** `CLAUDE.md` names the run folder as `AGI_Research/runs/<goal_id>/` inside the workspace
+and says the folder is gitignored, dropping the home-directory path. The self-run note gains one
+line under its table saying each row counts that step only and naming the close totals read from the
+run folder, and one clause in the follow-up section marking its counts as that separate run's own,
+no longer checkable.
+**Acceptance:** WHEN `CLAUDE.md` is read THEN it SHALL name `AGI_Research/runs/<goal_id>/` as the run
+folder and SHALL NOT name a research folder under the home directory, and WHEN the "What was run"
+table of `docs/runs/2026-09-09-self-run.md` is read THEN a line beneath it SHALL state the run's
+close totals of 40 evidence records and 27 claims and SHALL say the rows count one step each.
+**Verify:** `python3 -m unittest discover -s tests` → OK; `python3 scripts/validate_skill.py
+skills/research-council` and `skills/code-writer-council` → OK; every backticked path in the two
+changed files exists on disk.
+**Must not:** change any script, test or skill file; restate a count that cannot be read from a run
+folder on this machine; delete a row of the self-run table.
+
 ## Status
 | step | state | learned |
 |---|---|---|
@@ -456,3 +489,4 @@ prefixes (S-59 owns them).
 | S-58 | done 2026-09-22 (PR #58) | The step is two narrowings, and only both together close the hole: `added_text` joined every added line and every untracked file into one string, so the name had to be attributed to a file before a filter could mean anything. Attributing it needs the patch's own `+++ b/<path>` headers, which is why the old helper could not simply be filtered. `scope.is_verifier` and `scope.is_comment` were already written for the scope guard and are reused here, so the two scripts cannot drift on what a test file or a comment is. The first draft of the new test put the decoy in `notes/`, and the scope guard refused the whole diff before the thinker check ran (`outside: notes/test_big_verdict.md`): a decoy has to live inside `allowed_paths` or it tests the wrong guard. The lookbehind `(?<![\w.])` is what makes `helper_test_big_verdict(` not count. What this does not close: a docstring line in a verifier file holding the name with parentheses still counts, because `is_comment` reads line starts only, and `.github/**` is a verifier by `is_verifier`. Both are deliberate forgeries rather than accidents, and the tighter rule — the name defined in the file `thinker.json` itself names — needs `file` to become a required field, which is a schema change and its own step. Suite 492 → 493. |
 | S-59 | done 2026-09-22 (PR #59) | Bug 27 is two independent defects in one file, so it is two steps: this one is the half that fails open. The single prefix list was not merely imprecise, it was unsound in both directions — `--` and `*` hid real removed lines in shell and Python verifiers, and dropping them outright would have made a genuine SQL or C comment a removed line instead. Only a per-language map fixes both, which is why the constant became a dict and `is_comment` took a path. `scripts/done.py` had to change in the same PR because `defines` calls `scope.is_comment`: the signature is the coupling, and S-58 had already attributed every added line to its file, so the path was there to pass. The fallback for an unknown extension is `("#", "//")` rather than the old union, because a verifier-edit line is a warning the user can silence with `allow_verifier_edits` while a missed one is silent, so the guard leans to over-reporting. Free consequences of reading the language: `#include` in a `.c` verifier and `#` headings in a `.md` one are now real lines, and `.gitignore` falls to the fallback where `#` is right anyway. The fixture change is the test: `run_tests.sh` gained a `--failfast` continuation line, which the old code read as a comment. Suite 493 → 494. |
 | S-60 | done 2026-09-22 (PR #60) | Bug 27's second half, and the half that fails closed: the substring test never let a weakening through, it invented ones. Writing the step from the `skip`/`skipped` case alone produced a rule for the word-shaped markers only; running `verifier_reasons` on real lines before touching the code found `sys.exit(1)` reported as an `xit(` marker, the same defect on a call-shaped marker's leading edge, so the step block was corrected first and the fix became one rule: a word boundary on each edge of the marker whose own character there is a word character, and on no other edge. That is why `.only(` and `xdescribe(` keep working (`.` and `(` are not word characters, so they get no boundary) while `@ignore` gets one only on its right. The boundary lives in a compiled pattern per marker built at import, so `WEAKENING_MARKERS` stays the single list a reader edits and the printed reason still names the marker string, not the regex. The test asserts both directions in one new file — `r.skipped`, `skip_list` and `sys.exit(1)` silent, `@unittest.skip(` still reported — because a marker fix that only proves the negative would pass with the matcher deleted. Suite 494 -> 495; bug 27 now closed in full. |
+| S-61 | done 2026-09-22 (PR #TBD) | A docs bug, and the only kind of step here with no guard to break: nothing in code enforces either sentence, so the proof is that both claims were read off the system rather than off the bug row. Both were. `~/AGI_Research/` really is a bibliography corpus, and the run folder for goal id 622aeb79 really holds 40 evidence records and 27 claims — the same numbers the table's five per-step rows sum to, which is two independent confirmations of one count and the reason the totals could be written down at all. The third part of bug 29 could not be closed the same way: the 2026-09-10 section belongs to a different run whose folder is gone, so its `9 claim records` was left exactly as written and marked unverifiable instead of being corrected to the 11 the bug row claims. Correcting it from the bug row would have been restating an unchecked number as a fact, which is the failure this step exists to fix. `AGI_Research/runs/622aeb79-.../` was written plain in the end: a run folder is gitignored, so backticking it would break the convention that a backticked path exists in a checkout. |
