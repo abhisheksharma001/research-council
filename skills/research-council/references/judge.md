@@ -42,7 +42,7 @@ evidence battery right after `scripts/evidence.py add` prints `E-n recorded`. Sk
 entirely when the run's goal forbids paid calls: no script can read that prose, so it is your
 call.
 
-The evidence battery needs four fields you write into `.research-council/judge.json` at goal
+The evidence battery needs four fields you write into .research-council/judge.json at goal
 time, beside the three the opt-in file already carries:
 
 ```json
@@ -70,7 +70,7 @@ not a requirement: a page on a listed host is answered from the list with no cal
 
 | reason | meaning |
 |---|---|
-| `not enabled` | the run folder is not `<root>/AGI_Research/runs/<id>`, or the workspace has no `.research-council/judge.json` naming who enabled it, when, and that the terms were read |
+| `not enabled` | the run folder is not `<root>/AGI_Research/runs/<id>`, or the workspace has no .research-council/judge.json naming who enabled it, when, and that the terms were read |
 | `budget` | a cap is already exceeded, the dollar cap is 0, or one more action would pass the action cap |
 | `no product` | the evidence battery only: the opt-in file names no product, and the questions are about a page relative to one |
 | `egress private E-3` | a cited record is not marked `public` |

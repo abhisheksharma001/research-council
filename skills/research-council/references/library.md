@@ -38,7 +38,7 @@ contract is skipped: that is the PowerPlay rule, a new skill may not break an ol
 ## What a success writes
 
 1. the folder is copied to `library/units/<skill_id>/<version>/<name>/`
-2. `references/validation.json` inside it: validation id, timestamp, every contract run
+2. references/validation.json inside it: validation id, timestamp, every contract run
 3. one line appended to `receipts.jsonl`: package sha256, prior and new registry sha256, timestamp
 4. `registry.json` replaced atomically (temp file, then rename) with the new entry:
    skill_id, version, name, package_sha256, status validated, active true, validation_id

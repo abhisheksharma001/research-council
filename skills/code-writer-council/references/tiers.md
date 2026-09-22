@@ -50,7 +50,7 @@ as a whole token, so `@unittest.skip(` is a marker while `r.skipped`, `skip_list
 
 Globs in `allowed_paths`: `*` and `?` stay inside one folder level, `**` crosses levels,
 and a pattern must match the whole path from the workspace root. `scripts/*.py` allows
-`scripts/triage.py` but not `scripts/lib/util.py`; `scripts/**` allows both. Files under
+`scripts/triage.py` but not scripts/lib/util.py; `scripts/**` allows both. Files under
 `AGI_Research/` are the council's own state and are never part of the diff.
 
 Nothing here edits the working tree. The guard runs before the tier is chosen, again after
