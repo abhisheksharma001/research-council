@@ -25,5 +25,6 @@ gitignored.
 
 - Python 3.11+, standard library only for scripts (no pip deps) so the plugin runs anywhere.
 - Tests: `python3 -m unittest discover -s tests -v`. Every guarded behaviour has a test seen to fail with the guard removed.
-- Paths in docs with backticks exist. Planned names are written plain.
+- Paths in docs with backticks exist, enforced by `tests/test_doc_paths.py`. Planned,
+  deleted and run-folder names are written plain.
 - Every step is one PR. Branch `s<n>-<slug>`. Squash-merge. Register updated with what was learned.

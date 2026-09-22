@@ -38,7 +38,7 @@ as a separate engineering task, not by silently expanding this run's frozen scop
 - `python3 -m unittest discover -s tests` and `git log --oneline -30`: the current state.
 
 Nothing else is a source. Not the user's other projects, not `~/.claude`, not any
-`AGI_Research/runs/` folder outside this checkout, not the web.
+AGI_Research/runs/ folder outside this checkout, not the web.
 
 ## Procedure
 
