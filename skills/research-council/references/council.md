@@ -89,6 +89,14 @@ its original record controller; this is not a transaction across every run file.
 its write. A completed request cannot be replayed. A filesystem lock serializes controller
 mutations and records its process id, start time, and operation for manual crash diagnosis.
 
+The reply is read tolerantly and stored verbatim. One Markdown code fence around the
+JSON is stripped before parsing and raw control characters inside strings are allowed, so a
+long reply is not refused for how the model wrapped it. A meta-review heading may carry
+indent, `*` or `_` emphasis and trailing spaces, and its recommendation may begin `Continue`
+or `Stop.` as readily as `continue`. None of that changes what is saved: `meta.md` holds the
+bytes the role sent. A missing or duplicated section, an unknown field, an unknown id and the
+size limit still refuse the reply.
+
 On invalid or stale replies, do not launch another worker under the same reservation:
 
 ```sh
