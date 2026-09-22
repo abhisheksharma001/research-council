@@ -116,6 +116,44 @@ class BudgetTests(unittest.TestCase):
                          "spent: 12/60 min, 5/200 actions, 2/4 subagents, ~$0.75/$5 (unmetered: 3)")
         self.assertEqual(st["exceeded"], [])
 
+    def stamp(self, *offsets):
+        """Write journal.jsonl with one read entry at each offset in minutes from created_at."""
+        created = datetime.fromisoformat(goal.load(self.run)["created_at"])
+        marks = [created + timedelta(minutes=m) for m in offsets]
+        (self.run / journal.FILENAME).write_text(
+            "".join(json.dumps({"ts": m.isoformat(), "kind": "read", "cost_usd": None,
+                                "detail": "read entry"}) + "\n" for m in marks),
+            encoding="utf-8")
+        return created, marks
+
+    def test_the_longest_quiet_stretch_is_reported_beside_the_wall_clock(self):
+        created, marks = self.stamp(2, 5, 293, 295)
+        st = budget.status(self.run, now=created + timedelta(minutes=313))
+        self.assertEqual(st["spent"]["minutes"], 313)
+        self.assertEqual(st["exceeded"], ["minutes"])
+        self.assertEqual(st["longest_gap"], (288, marks[2].isoformat()))
+        self.assertEqual(budget.pause_line(st),
+                         "minutes are wall clock since created_at; "
+                         f"longest quiet stretch: 288 min, ending {marks[2].isoformat()}")
+        # the CLI reads the real clock, so its minutes differ; the quiet stretch does not
+        r = subprocess.run([sys.executable, str(BUDGET_SCRIPT), "check", "--run", str(self.run)],
+                           capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.splitlines()[1], budget.pause_line(st))
+
+    def test_a_pause_before_the_first_entry_is_a_quiet_stretch(self):
+        created, marks = self.stamp(40, 41)
+        st = budget.status(self.run, now=created + timedelta(minutes=42))
+        self.assertEqual(st["longest_gap"], (40, marks[0].isoformat()))
+
+    def test_an_empty_journal_has_no_quiet_stretch(self):
+        st = budget.status(self.run)
+        self.assertIsNone(st["longest_gap"])
+        self.assertIsNone(budget.pause_line(st))
+        r = subprocess.run([sys.executable, str(BUDGET_SCRIPT), "check", "--run", str(self.run)],
+                           capture_output=True, text=True)
+        self.assertEqual(len(r.stdout.splitlines()), 1, r.stdout)
+
     def test_judge_is_a_metered_action_from_the_cli(self):
         r = subprocess.run([sys.executable, str(JOURNAL_SCRIPT), "add", "--run", str(self.run),
                             "--kind", "judge", "--cost_usd", "0.00002",

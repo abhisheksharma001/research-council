@@ -540,6 +540,41 @@ skills/research-council` → OK.
 `claims.jsonl` from the comparison; change what any role is allowed to write; let `fence.py` delete
 or restore a file.
 
+### S-64 — budget.py: say where the wall-clock minutes went
+
+**PR:** one.
+**Depends on:** nothing.
+**Research:** none.
+**Files:** `scripts/budget.py`, `tests/test_budget.py`,
+`skills/research-council/references/budget.md`, `skills/research-council/SKILL.md`,
+`docs/bugs.md` (row 18).
+**Today:** `status` computes `minutes` as wall-clock minutes since `created_at`, which is the
+user's rule and stays the user's rule. Nothing says so on the output, though, so the 2026-09-17 run
+printed `313/90 min` at report time after about 25 minutes of Supervisor work: the run had waited
+288 minutes between two interactive turns. The reader of that line has no way to tell a run that
+overspent from a run that was left open overnight, and the same line makes the next `check` exit 2.
+`references/budget.md` states the wall-clock rule only in a table cell, and `SKILL.md` never warns
+that a pause spends the cap.
+**Change:** the minutes stay exactly as they are — the cap is the user's and no script may soften
+it (CLAUDE.md invariant 4) — and `budget.py` prints one extra line saying where they went, computed
+from the timestamps already in `journal.jsonl`: the longest gap between two consecutive journal
+lines (the gap from `created_at` to the first line counts as one), in minutes, with the time it
+ended. No threshold is invented and no minute is excused: the line reports a measured gap, and the
+reader decides whether it was work or waiting. It is printed whenever the journal holds at least
+one line, after the `spent:` line, and the existing `line(st)` is untouched so the `spent:` format
+does not move. `references/budget.md` states the wall-clock rule in its own sentence above the
+table, and `SKILL.md` tells the Supervisor to finish a run in one sitting and to report the pause
+in the run note when it cannot.
+**Acceptance:** WHEN a run's journal holds two lines 288 minutes apart THEN `budget.py check` SHALL
+print a second line naming 288 minutes as the longest gap and the time it ended, and WHEN the
+minutes cap is exceeded THEN the exit code SHALL still be 2 and the reported minutes SHALL still be
+the wall-clock minutes since `created_at`.
+**Verify:** `python3 -m unittest tests.test_budget -v` → pass; make the gap ignore `created_at` →
+the new test fails; drop the pause line → the new test fails; `python3 -m unittest discover -s
+tests` → OK; `python3 scripts/validate_skill.py skills/research-council` → OK.
+**Must not:** change `minutes`, any cap, any exit code, or what counts as an action; subtract a gap
+from the spent minutes; invent an idle threshold; change the `spent:` line's format.
+
 ## Status
 | step | state | learned |
 |---|---|---|

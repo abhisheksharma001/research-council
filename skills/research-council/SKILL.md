@@ -97,7 +97,10 @@ Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrie
    ten actions run `scripts/budget.py check --run <run>`. Exit 2 means a cap is exceeded:
    stop, show the user the printed line, finish with what exists. Any other nonzero exit
    also stops the run until the invalid state is resolved. Never edit the budget. Unknown
-   provider charges remain unmetered, not a claim that the work was free.
+   provider charges remain unmetered, not a claim that the work was free. `minutes` is wall
+   clock since `created_at`, so finish a run in one sitting; when the run has to wait for the
+   user, say so in the run note and quote the longest quiet stretch the check prints, because
+   those minutes are spent either way.
 4. **Evidence and claims.** Read `references/evidence.md`. Every time a source is seen, run
    `scripts/evidence.py add --run <run> --from -` with the exact excerpt and a locator; the
    script refuses a record without one. After each `E-n recorded` line run
