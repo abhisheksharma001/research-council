@@ -5,6 +5,8 @@ Usage:
   python3 scripts/judge.py run       --run <run-dir> --battery claim|evidence --id C-7 \
       [--adapter jev|fake] [--fake-answers <json>] [--mode shadow|gate]
   python3 scripts/judge.py questions --battery claim|evidence
+  python3 scripts/judge.py cases     --battery claim --runs <run-dir>... [--synthetic <jsonl>] \
+      --out <cases.jsonl>
 
 `run` prints exactly one line and nothing else:
 
@@ -48,6 +50,7 @@ evidence id, a run with no goal.json, `--mode gate` (not wired until thresholds 
 `--adapter fake` without `--fake-answers`.
 """
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -85,6 +88,17 @@ EGRESS = (
     ("home path", re.compile(r"/Users/[^/\s]+")),
 )
 CLAIM_STATE_FIELDS = ("statement", "scope", "claim_type")
+# Reflection's objection kinds, as labels on the claim battery's one matching question each.
+# `stop` names no claim property and labels nothing.
+OBJECTION_LABELS = {
+    "provenance": {"supported": 0},
+    "scope": {"wider": 1},
+    "type": {"inferred": 1},
+}
+# A counterexample may name any record on file (agents/reflection.md), and the state carries only
+# the cited excerpts, so no label can be read from it: such a claim is excluded, not labelled.
+UNLABELLABLE = ("counterexample",)
+SUPPORTED_LABELS = {"supported": 1, "contradicted": 0, "wider": 0, "inferred": 0}
 NAME_FIELDS = ("product", "vendor")
 HOST_FIELDS = ("vendor_hosts", "partner_hosts")
 BATTERIES = {
@@ -477,6 +491,146 @@ def run_battery(run, name, subject, adapter="jev", fake_answers=None, opener=Non
     return _record(run, name, subject, decision, result, answers)
 
 
+def reflection_seen(run):
+    """Claim ids Reflection demonstrably read, and how that was established.
+
+    The sha256 fence/reflection.json recorded for claims.jsonl is matched against every
+    line-prefix of today's file, which is append-only, so a match names exactly the lines the
+    role was given. Without a fence folder the fallback is every id at or below the highest id
+    any objection names. With neither, no claim counts as seen.
+    """
+    run = Path(run)
+    path = run / claims.FILENAME
+    data = path.read_bytes() if path.is_file() else b""
+    try:
+        fence = json.loads((run / "fence" / "reflection.json").read_text(encoding="utf-8"))
+        want = fence["files"][claims.FILENAME]
+    except (OSError, ValueError, KeyError, TypeError):
+        want = None
+    if want:
+        ends = [i + 1 for i, byte in enumerate(data) if byte == 0x0A]
+        for end in ends:
+            if hashlib.sha256(data[:end]).hexdigest() == want:
+                ids = {json.loads(line)["claim_id"]
+                       for line in data[:end].decode("utf-8").splitlines() if line.strip()}
+                return ids, "fence"
+    numbers = [int(cid[2:]) for item in _objections(run) for cid in item.get("claim_ids", [])
+               if isinstance(cid, str) and cid.startswith("C-") and cid[2:].isdigit()]
+    if not numbers:
+        return set(), "none"
+    top = max(numbers)
+    return {c["claim_id"] for c in claims.read(run) if int(c["claim_id"][2:]) <= top}, "objections"
+
+
+def _objections(run):
+    """The objections list of a run, or [] when the file is missing or unreadable."""
+    try:
+        items = json.loads((Path(run) / "objections.json").read_text(encoding="utf-8"))
+        items = items["objections"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return []
+    return [item for item in items if isinstance(item, dict)] if isinstance(items, list) else []
+
+
+def export_cases(runs):
+    """(cases, counts) for the claim battery, from Reflection's own verdicts on each run.
+
+    A claim with an objection of a labelling kind is a negative on that question only; an
+    `observed` claim Reflection read and did not object to is a positive on all four, and an
+    accepted `inferred` or `predicted` one is labelled inferred and nothing else. A superseded
+    claim, one under a counterexample, one Reflection never read, one the number rule answers
+    in code and one the egress guard stops are all excluded and counted by reason.
+    """
+    cases, counts = [], {}
+
+    def count(key):
+        counts[key] = counts.get(key, 0) + 1
+
+    for run in runs:
+        run = Path(run)
+        prefix = run.name[:8]
+        seen, _ = reflection_seen(run)
+        kinds = {}
+        for item in _objections(run):
+            if item.get("kind") in OBJECTION_LABELS or item.get("kind") in UNLABELLABLE:
+                for cid in item.get("claim_ids", []):
+                    kinds.setdefault(cid, set()).add(item["kind"])
+        for claim in claims.read(run):
+            cid = claim["claim_id"]
+            if "superseded_by" in claim:
+                count("excluded superseded")
+                continue
+            if kinds.get(cid, set()) & set(UNLABELLABLE):
+                count("excluded counterexample")
+                continue
+            if cid in kinds:
+                labels = {}
+                for kind in sorted(kinds[cid]):
+                    labels.update(OBJECTION_LABELS[kind])
+            elif cid in seen and claim["claim_type"] == "observed":
+                labels = dict(SUPPORTED_LABELS)
+            elif cid in seen:
+                labels = {"inferred": 1}
+            else:
+                count("excluded not read by reflection")
+                continue
+            state, cited = build_claim_state(run, cid)
+            payload = json.dumps(state, ensure_ascii=False)
+            reason = egress_check(payload, cited) or ("size" if len(payload) > STATE_MAX else None)
+            if reason:
+                count(f"excluded {reason.split(' E-')[0]}")
+                continue
+            if numbers_missing(state["claim"]["statement"],
+                               [item["excerpt"] for item in state["evidence"]]):
+                count("excluded rule: number")
+                continue
+            cases.append({"id": f"{prefix}-{cid}", "state": state, "labels": labels})
+            count("positive" if labels == SUPPORTED_LABELS
+                  else "accepted inferred" if cid not in kinds else "negative")
+    return cases, counts
+
+
+def synthetic_cases(path):
+    """(cases, counts) from a hand-written file, through the same egress guard and number rule."""
+    cases, counts = [], {}
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        case = json.loads(line)
+        payload = json.dumps(case["state"], ensure_ascii=False)
+        reason = egress_check(payload, []) or ("size" if len(payload) > STATE_MAX else None)
+        if not reason and numbers_missing(case["state"]["claim"]["statement"],
+                                          [e["excerpt"] for e in case["state"]["evidence"]]):
+            reason = "rule: number"
+        key = f"excluded {reason}" if reason else "synthetic"
+        counts[key] = counts.get(key, 0) + 1
+        if not reason:
+            cases.append(case)
+    return cases, counts
+
+
+def write_cases(name, runs, synthetic, out):
+    """Write the cases file and print one count line per reason. Only the claim battery has labels."""
+    if battery(name) is not BATTERIES["claim"]:
+        raise ValueError(f"no labels exist for the {name} battery; cases covers claim only")
+    for run in runs:
+        if not (Path(run) / "goal.json").is_file():
+            raise ValueError(f"no goal.json in {run}; cases reads research runs only")
+    cases, counts = export_cases(runs)
+    if synthetic:
+        extra, more = synthetic_cases(synthetic)
+        cases += extra
+        for key, value in more.items():
+            counts[key] = counts.get(key, 0) + value
+    with Path(out).open("w", encoding="utf-8") as fh:
+        for case in cases:
+            fh.write(json.dumps(case, ensure_ascii=False) + "\n")
+    for key in sorted(counts):
+        print(f"{key}: {counts[key]}")
+    print(f"cases written: {len(cases)}")
+    return 0
+
+
 def main(argv):
     p = argparse.ArgumentParser(prog="judge.py")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -489,11 +643,18 @@ def main(argv):
     r.add_argument("--mode", default="shadow", choices=("shadow", "gate"))
     q = sub.add_parser("questions")
     q.add_argument("--battery", required=True)
+    c = sub.add_parser("cases")
+    c.add_argument("--battery", required=True)
+    c.add_argument("--runs", nargs="+", required=True)
+    c.add_argument("--synthetic")
+    c.add_argument("--out", required=True)
     args = p.parse_args(argv[1:])
     try:
         if args.cmd == "questions":
             print(json.dumps(battery(args.battery)["questions"], indent=2, ensure_ascii=False))
             return 0
+        if args.cmd == "cases":
+            return write_cases(args.battery, args.runs, args.synthetic, args.out)
         if args.mode == "gate":
             raise ValueError("--mode gate has no fitted thresholds to gate on; shadow mode only")
         line, _ = run_battery(args.run, args.battery, args.subject, args.adapter,

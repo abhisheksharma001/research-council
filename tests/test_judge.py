@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import claims  # noqa: E402
 import evidence  # noqa: E402
+import fence  # noqa: E402
 import goal  # noqa: E402
 import harness  # noqa: E402
 import journal  # noqa: E402
@@ -519,6 +520,103 @@ class EvidenceBatteryTests(Case, unittest.TestCase):
         text = SKILL_MD.read_text(encoding="utf-8")
         self.assertLess(text.index("scripts/evidence.py add"),
                         text.index("scripts/judge.py run --run <run> --battery evidence"))
+
+
+class CasesTests(Case, unittest.TestCase):
+    """The claim cases exporter: labels from Reflection's own verdicts, through the egress guard."""
+
+    def add(self, statement=STATEMENT, excerpt=EXCERPT, scope="public", claim_type="observed"):
+        record = evidence.add(self.run, {"source_type": "web", "source_uri": "https://example.org/d",
+                                         "title": "Booking docs", "locator": "Holds",
+                                         "excerpt": excerpt, "access_scope": scope})
+        return claims.add(self.run, {"statement": statement, "claim_type": claim_type,
+                                     "scope": "the booking service",
+                                     "evidence_ids": [record["evidence_id"]],
+                                     "test_ids": [], "limitations": ""})["claim_id"]
+
+    def object(self, *items):
+        body = {"objections": [{"id": f"O-{n}", "claim_ids": [cid], "kind": kind,
+                                "blocking": True, "text": "x", "resolve_with": "x"}
+                               for n, (cid, kind) in enumerate(items, 1)]}
+        (self.run / "objections.json").write_text(json.dumps(body), encoding="utf-8")
+
+    def labels(self):
+        cases, counts = judge.export_cases([self.run])
+        return {c["id"].split("-", 1)[1]: c["labels"] for c in cases}, counts
+
+    def test_a_positive_is_only_a_claim_the_reflection_snapshot_covered(self):
+        self.add()
+        fence.snapshot(self.run, "reflection")
+        self.add()
+        labels, counts = self.labels()
+        self.assertEqual(labels, {"C-1": judge.SUPPORTED_LABELS})
+        self.assertEqual(counts["excluded not read by reflection"], 1)
+
+    def test_each_objection_kind_labels_its_one_question(self):
+        for _ in range(5):
+            self.add()
+        self.object(("C-1", "provenance"), ("C-2", "scope"), ("C-3", "type"),
+                    ("C-4", "counterexample"), ("C-5", "stop"))
+        fence.snapshot(self.run, "reflection")
+        labels, counts = self.labels()
+        self.assertEqual(labels["C-1"], {"supported": 0})
+        self.assertEqual(labels["C-2"], {"wider": 1})
+        self.assertEqual(labels["C-3"], {"inferred": 1})
+        self.assertEqual(labels["C-5"], judge.SUPPORTED_LABELS)
+        # A counterexample may cite a record the state does not carry, so it labels nothing.
+        self.assertNotIn("C-4", labels)
+        self.assertEqual(counts["excluded counterexample"], 1)
+
+    def test_an_accepted_inferred_claim_is_labelled_inferred_and_nothing_else(self):
+        self.add(claim_type="inferred")
+        fence.snapshot(self.run, "reflection")
+        labels, counts = self.labels()
+        self.assertEqual(labels, {"C-1": {"inferred": 1}})
+        self.assertEqual(counts["accepted inferred"], 1)
+
+    def test_without_a_fence_the_highest_objected_id_bounds_the_positives(self):
+        for _ in range(3):
+            self.add()
+        self.object(("C-2", "scope"))
+        labels, counts = self.labels()
+        self.assertEqual(sorted(labels), ["C-1", "C-2"])
+        self.assertEqual(counts["excluded not read by reflection"], 1)
+
+    def test_superseded_private_and_number_rule_claims_are_excluded_and_counted(self):
+        self.add()
+        self.add(scope="private")
+        self.add(statement="The booking service holds a slot for 15 minutes.")
+        self.add()
+        claims.supersede(self.run, "C-1", "C-4", "narrowed")
+        fence.snapshot(self.run, "reflection")
+        labels, counts = self.labels()
+        self.assertEqual(sorted(labels), ["C-4"])
+        self.assertEqual(counts["excluded superseded"], 1)
+        self.assertEqual(counts["excluded egress private"], 1)
+        self.assertEqual(counts["excluded rule: number"], 1)
+
+    def test_the_cli_count_matches_the_lines_written_and_the_synthetic_file_all_passes(self):
+        self.add()
+        fence.snapshot(self.run, "reflection")
+        out = self.root / "cases.jsonl"
+        result = self.cli("cases", "--battery", "claim", "--runs", self.run,
+                          "--synthetic", FAKES / "synthetic-claims.jsonl", "--out", out)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = out.read_text(encoding="utf-8").splitlines()
+        self.assertIn(f"cases written: {len(lines)}", result.stdout)
+        self.assertIn("synthetic: 30", result.stdout)
+        self.assertNotIn("excluded", result.stdout)
+        self.assertEqual(len(lines), 31)
+
+    def test_cases_refuses_the_evidence_battery_and_a_folder_with_no_goal(self):
+        out = self.root / "cases.jsonl"
+        result = self.cli("cases", "--battery", "evidence", "--runs", self.run, "--out", out)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("claim only", result.stderr)
+        result = self.cli("cases", "--battery", "claim", "--runs", self.root, "--out", out)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("no goal.json", result.stderr)
+        self.assertFalse(out.exists())
 
 
 if __name__ == "__main__":

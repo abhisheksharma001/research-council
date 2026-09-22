@@ -22,8 +22,8 @@ evaluating". Zero data retention was enterprise-only, hosting was US, and no SOC
 was found. Whether any of that still holds is unverified.
 **Review:** Abhishek reads the current terms himself. Not a model call: a person's name and the
 date are what the opt-in file records.
-**Status:** open
-**Answer:**
+**Status:** partly answered 2026-09-22 in S-53
+**Answer:** yes for evaluation with public excerpts and synthetic cases; the opt-in stays unset. Read by Claude on 2026-09-22, not by Abhishek. The Terms of Use (last updated 2026-09-19) do not distinguish evaluation from production. They ask users not to submit anything they consider confidential or proprietary. The Privacy Policy (last updated 2025-11-19) says TypeSafe will not train or fine-tune on prompts or other Input, and will share Input only with its service providers. It sets no retention period for API inputs. Public web excerpts and invented cases fall inside that. Client or private records do not, and the egress guard already keeps those out. Abhishek gave the spend go the same day, which covered S-53's offline calibration. The workspace opt-in file records a person who read the terms, so it was not written, and the in-run judge stays off until he reads them.
 
 ### R-2 — What true-positive and true-negative rate does Jev reach on our own claim cases?
 
@@ -35,8 +35,8 @@ bar the seam stays in shadow mode for good and S-54 is dropped; at or above it, 
 supported 0.81-0.98, unsupported 0.01-0.04) and one independent 32-case test that called Jev
 "less convincing" and found 3 of 4 mistakes held confidence above 0.8. Neither used our claims.
 **Review:** none needed; the calibration run answers it and the note carries the numbers.
-**Status:** open
-**Answer:**
+**Status:** answered 2026-09-22 in S-53 (direction only)
+**Answer:** below the bar, on too few cases to settle it: TPR 0.85 on unsupported (11/13) at TNR 0.62 on supported (5/8), held-out split. Neither class reaches n >= 20, so `fitted` stays None and S-54 stays blocked; the full numbers are in the 2026-09-22 calibration note under docs/runs/.
 
 ### R-3 — Which claims had Reflection actually seen when it wrote its objections?
 
@@ -51,8 +51,8 @@ run 622aeb79 has no fence folder at all, and the 2026-09-21 jev run's own meta-r
 its Reflection pass saw only E-1 to E-10. Neither the prefix match nor the fallback (ids at or
 below the highest objected id) has been run yet.
 **Review:** none; the exporter prints the counts it used and the calibration note repeats them.
-**Status:** open
-**Answer:**
+**Status:** answered 2026-09-22 in S-53
+**Answer:** measured by the exporter. In four runs the fence snapshot's sha matched a line-prefix of claims.jsonl exactly: 80e03afb 25 claims, e322c3a5 21, 65a47056 87, 07faefbd 7. Run 622aeb79 fell back to ids at or below the highest objected id, which gave 18. Across the five runs, 33 claims were never read by Reflection and were left out of the positives.
 
 ### R-4 — Can a battery definition live in a JSON file under the skill folder?
 
@@ -79,8 +79,8 @@ state plus the longest single question) and the dated model id all come from res
 and the vendor says limits "can change without notice".
 **Review:** none; S-53 re-checks live with `GET /v1/models` and records the `model` field the API
 returns, and the calibration note carries both with the date.
-**Status:** open
-**Answer:**
+**Status:** partly answered 2026-09-22 in S-53
+**Answer:** the model id holds. Every one of 218 responses reported `jev-1.13.0`, though `GET /v1/models` now lists only jev-latest and jev-preview, so the dated id is accepted without being advertised. The price was not re-read from the vendor page. $0.042/M is still the recorded figure; the tokens the API reported came to $0.0085 at that rate. The 64k limit was not exercised, because the largest state stayed far below it.
 
 ### R-6 — Is the key exported in the shell profile the same one pasted into chat?
 
@@ -92,8 +92,8 @@ What is known: `~/.zshrc` contains an `export TYPESAFE_API_KEY=` line, and a non
 shell does not read `.zshrc`, so the variable was absent from every command in this session.
 **Review:** Abhishek. The pasted key is rotated after S-53 either way, because a key that has
 appeared in a transcript is treated as exposed.
-**Status:** open
-**Answer:**
+**Status:** answered 2026-09-22 in S-53
+**Answer:** one key. The key the shell profile exports appears in this session's own transcript, so it is the key pasted into chat. This was checked with a fixed-string search that printed only a match count, never the key, and the key is not in any commit on any branch. Rotating it therefore breaks the profile until the new key replaces that line.
 
 ### R-7 — Is a resolution's frozen diff sha intended, or a defect?
 
@@ -123,8 +123,8 @@ sources available contradict each other. `scripts/judge.py` therefore accepts bo
 raises on anything else, so an unexpected body prints `skipped: adapter ...` and the run
 proceeds on today's path instead of on a wrong decision.
 **Review:** answered by the first live call in S-53; the response body is pasted into this flag.
-**Status:** open
-**Answer:**
+**Status:** answered 2026-09-22 in S-53
+**Answer:** an object: `{"type": "noul", "noul": 0.97}`, taken from the first cached answer. `probability` in scripts/judge.py already reads the `noul` key, so no code change was needed. calibrate.py reads the same key, and the calibrate.py:147 reading in the question above was mistaken.
 
 ### R-9 — How often does the phone-number pattern stop an ordinary technical excerpt?
 
