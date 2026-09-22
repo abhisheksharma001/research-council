@@ -133,6 +133,18 @@ class CouncilFenceBlock(unittest.TestCase):
         self.assertIn("scripts/fence.py check --run <run> --role <role>", block)
         self.assertNotIn("this listing is the fence", block)
 
+    def test_the_block_forbids_a_run_folder_write_between_snapshot_and_check(self):
+        block = self.block()
+        self.assertIn("Run no script that writes into the run folder between the snapshot and the check.",
+                      block)
+        pair = block.index("scripts/rank.py pair")
+        self.assertLess(pair, block.index("scripts/fence.py snapshot"))
+
+    def test_the_excluded_files_named_in_the_prose_are_the_ones_the_script_skips(self):
+        block = self.block()
+        for name in sorted(fence.SKIP):
+            self.assertIn(f"`{name}`", block)
+
 
 
 class CodeCouncilFence(unittest.TestCase):
