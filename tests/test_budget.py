@@ -316,5 +316,23 @@ class TaskBudgetTests(unittest.TestCase):
         self.assertEqual(budget.status(self.run)["exceeded"], ["usd_estimate_cap"])
 
 
+CAPS_TABLES = (
+    ROOT / "skills" / "research-council" / "references" / "budget.md",
+    ROOT / "skills" / "code-writer-council" / "references" / "task.md",
+)
+
+
+class CapsTableTests(unittest.TestCase):
+    def test_each_max_actions_row_names_the_kinds_budget_counts(self):
+        for path in CAPS_TABLES:
+            with self.subTest(path=path.name):
+                rows = [l for l in path.read_text(encoding="utf-8").splitlines()
+                        if l.startswith("| `max_actions` |")]
+                self.assertEqual(len(rows), 1, f"{path.name}: no single max_actions row")
+                listed = rows[0].split("journal lines of kind ", 1)[1].split(" (", 1)[0]
+                kinds = {k.strip() for k in listed.split(",")}
+                self.assertEqual(kinds, set(journal.ACTION_KINDS), path.name)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -24,7 +24,7 @@ numbers from a fixture, a memo, an earlier task, this file or the register; neve
 | cap | meaning |
 |---|---|
 | `minutes` | wall-clock minutes since `created_at` |
-| `max_actions` | journal lines of kind fetch, read, write, subagent, exec (`note` does not count) |
+| `max_actions` | journal lines of kind fetch, read, write, subagent, exec, judge (`note` does not count) |
 | `max_subagents` | journal lines of kind `subagent`; the tier table needs 0, 2 or 3 |
 | `usd_estimate_cap` | sum of `cost_usd`; `null` counts as 0 and is reported as `unmetered: N` |
 
