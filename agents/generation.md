@@ -51,8 +51,10 @@ If the file exists, read it first and keep every existing entry; add, never dele
 ```
 
 Rules:
-- Start from `goal.json` `competing_hypotheses`: keep their ids and statements verbatim,
-  add `needed_evidence` and `stop_condition`. New hypotheses continue the numbering.
+- Start from `goal.json` `competing_hypotheses`: keep their ids, statements, predictions
+  and `stop_condition` verbatim, and add `needed_evidence`. New hypotheses continue the
+  numbering and write their own `stop_condition`: the observation that would prove them
+  wrong, never a restatement of `predicted_result`.
 - A refinement of an existing hypothesis is a new entry with `parent_id` set. Never edit
   the parent (Co-Scientist: Evolution creates, it does not replace).
 - Every investigation must name at least two hypotheses whose `expected_if` differ. An
