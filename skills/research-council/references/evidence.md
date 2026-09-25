@@ -33,6 +33,7 @@ JSON
 | `locator` | page, section, line range, timestamp, or artifact key. Required: without it nobody can go back and look |
 | `excerpt` | the exact text seen, copied, at most 2000 characters. Not a summary |
 | `access_scope` | `public` (anyone can open the source) or `private` (client data, local files, command output) |
+| `unknowns` | optional: which of the goal's `unknowns` this record bears on, by number from 1 in goal.json order, e.g. `[2]`. `scripts/coverage.py` counts sources per unknown from it, so tag every record that answers one. A number above the goal's count is refused |
 
 The script adds `evidence_id` (`E-1`, `E-2`, ... one above the highest used), `retrieved_at`
 (UTC, when recorded) and `sha256` of the excerpt so a later reader can tell if the quoted

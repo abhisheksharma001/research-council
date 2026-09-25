@@ -7,9 +7,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ROLES = ("generation", "reflection", "ranking", "meta-review")
-RUNTIME_SCRIPTS = ("budget", "claims", "council", "deps", "done", "evidence", "fence", "goal", "harness",
-                   "journal", "judge", "promote", "rank", "report", "retrieve", "scope", "spark", "task",
-                   "triage", "validate_manifest", "validate_skill")
+RUNTIME_SCRIPTS = ("budget", "claims", "council", "coverage", "deps", "done", "evidence", "fence", "goal",
+                   "harness", "journal", "judge", "promote", "rank", "report", "retrieve", "scope", "spark",
+                   "task", "triage", "validate_manifest", "validate_skill")
 TOOLS = tuple(name for name in RUNTIME_SCRIPTS
               if name not in ("harness", "promote", "validate_manifest", "validate_skill"))
 

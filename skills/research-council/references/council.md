@@ -43,6 +43,21 @@ Independent source reads may run in parallel when authorized. These council stag
 one another's outputs and stay ordered. One pending request per run prevents accidental
 concurrent writers. A worker cap is a maximum, not a quota to exhaust.
 
+## Coverage gate
+Workers stop early. Told to research for fifteen minutes, all nine workers of the 2026-09-25
+self-run came back in four to six: a duration reads as enough, not as a floor. So the floor
+is a count, checked in code before synthesis:
+```bash
+python3 scripts/coverage.py check --run <run> --min 2
+```
+It counts distinct `source_uri` values among the evidence records tagged with each goal
+unknown (the `unknowns` field in `references/evidence.md`). Exit 2 names every unknown below
+the minimum. Send one worker into each gap with the unknown's text as its brief, record what
+it brings with the tag, and run the check again. A worker that returns early with nothing
+new for a gap is sent once more with the sources it already tried listed as done. Only when
+the check exits 0, or `budget.py check` exits 2, does the report run. Two is the default
+minimum: one source is a claim, two can disagree.
+
 **Stage 3, report (S-9).** No subagents. Render records, including unresolved and missing work.
 
 ## Every spawn, no exceptions
