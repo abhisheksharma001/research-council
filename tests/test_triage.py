@@ -12,7 +12,7 @@ SCRIPT = ROOT / "scripts" / "triage.py"
 
 
 def ans(**kw):
-    a = {"q1": False, "q2": False, "q3": False, "q4": False, "q5": False}
+    a = {"q1": False, "q2": False, "q3": False, "q4": False, "q5": False, "q6": False}
     a.update(kw)
     return a
 
@@ -39,6 +39,27 @@ class TriageTests(unittest.TestCase):
         r = triage.triage(ans(q2=True))
         self.assertEqual(r["verdict"], "small")
         self.assertIn("only 1 of 4", r["reasons"][0])
+
+    def test_a_big_chain_takes_the_single_path_and_q6_never_changes_size(self):
+        self.assertEqual(triage.triage(ans(q1=True, q5=True))["path"], "council")
+        r = triage.triage(ans(q1=True, q5=True, q6=True))
+        self.assertEqual((r["verdict"], r["path"]), ("big", "single"))
+        self.assertEqual(r["reasons"][-1], "q6: each step needs the result of the step before")
+        self.assertEqual(triage.triage(ans(q4=True, q6=True))["path"], "single")
+        small = triage.triage(ans(q2=True, q6=True))
+        self.assertEqual(small["verdict"], "small")
+        self.assertNotIn("path", small)
+        with self.assertRaisesRegex(ValueError, "missing answers: q6"):
+            triage.triage({k: v for k, v in ans().items() if k != "q6"})
+
+    def test_the_docs_route_the_single_path_around_the_council(self):
+        ref = (ROOT / "skills" / "research-council" / "references" / "triage.md").read_text(encoding="utf-8")
+        self.assertIn("| q6 |", ref)
+        self.assertIn('"q6":false}', ref)
+        skill = (ROOT / "skills" / "research-council" / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn('`"path": "single"`, run steps 2, 3, 4 and 8 yourself and skip 5 to 7', skill)
+        council = (ROOT / "skills" / "research-council" / "references" / "council.md").read_text(encoding="utf-8")
+        self.assertIn("evidence gathering may fan out,\njudgement stays single", council)
 
     def test_missing_answer_raises(self):
         with self.assertRaises(ValueError):

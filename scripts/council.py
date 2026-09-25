@@ -250,15 +250,32 @@ def _heading(name):
     return re.compile(rf"^[ \t]*##[ \t]*[*_]*{re.escape(name)}[*_]*[ \t\r]*$\n?", re.MULTILINE)
 
 
+def _single(section):
+    """The Single-agent answer section: an answer line, and a line beginning same or differs.
+
+    It records what one agent would conclude from claims.jsonl alone, ignoring ratings and
+    objections, so a later reader can count the runs where the council changed the answer.
+    """
+    lines = [l.strip() for l in section.splitlines() if l.strip()]
+    first = [l.split()[0].strip(string.punctuation).casefold() for l in lines]
+    if "same" not in first and "differs" not in first:
+        raise ValueError("meta-review single-agent answer needs a line beginning same or differs")
+    if len(lines) < 2:
+        raise ValueError("meta-review single-agent answer needs the answer itself, not only same or differs")
+
+
 def _meta(reply):
     _keys(reply, ("content",))
     text = reply["content"]
     _text(text, "content")
     body = []
-    for heading in ("Recurring weaknesses", "Hypothesis status", "Next investigation", "Recommendation"):
+    for heading in ("Recurring weaknesses", "Hypothesis status", "Next investigation",
+                    "Single-agent answer", "Recommendation"):
         found = list(_heading(heading).finditer(text))
         if len(found) != 1:
             raise ValueError(f"meta-review requires one {heading} section")
+        if heading == "Single-agent answer":
+            _single(re.split(r"\n[ \t]*#", text[found[0].end():], maxsplit=1)[0])
         if heading == "Recommendation":
             body = text[found[0].end():].strip().splitlines()
     if not body or body[0].split()[0].strip(string.punctuation).casefold() not in ("continue", "stop"):

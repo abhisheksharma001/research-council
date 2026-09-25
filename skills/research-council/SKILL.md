@@ -73,9 +73,10 @@ changes the decision, or a limit is reached; label unresolved criteria honestly.
 ## Procedure
 Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrieval lives inside step 2.
 
-1. **Triage.** Read `references/triage.md`. Answer the five questions from the request text, run
+1. **Triage.** Read `references/triage.md`. Answer the six questions from the request text, run
    `scripts/triage.py --answers -`. Exit 3 means small: tell the user in one line which size
    signals were missing, then handle the task directly without this skill. Exit 0: continue.
+   When it prints `"path": "single"`, run steps 2, 3, 4 and 8 yourself and skip 5 to 7.
 2. **Goal capture.** Read `references/goal.md`. Ask the user for the four budget numbers and
    at least one success criterion; never invent either. If the user has not given the
    numbers or the criterion in this session, stop and ask again. Never copy them from a

@@ -39,6 +39,10 @@ You write exactly one file: `meta.md` in the run folder. Overwrite it; the journ
 ## Next investigation
 <one investigation id from hypotheses.json, or one new action in one sentence, and which hypotheses it discriminates>
 
+## Single-agent answer
+<one sentence: the answer one agent would give from claims.jsonl alone, ignoring ratings and objections>
+same | differs — <how the council's leading hypothesis differs, with its id>
+
 ## Recommendation
 continue | stop — <reason>; stop: H1, H4
 ```
@@ -52,5 +56,9 @@ Rules:
 - `stop: H1, H4` at the end of the Recommendation line names every open hypothesis whose
   stop condition is met, each backed by an objection id in the table above. Leave it off
   when there is none. You name them; the Supervisor runs the script that marks them.
+- The Single-agent answer is what the evidence-backed claims say on their own, before any
+  ranking or objection. Then write `same` when the leading open hypothesis says the same
+  thing, or `differs` and how. The script refuses a section without both lines. Over many
+  runs this counts how often the council changed the answer at all.
 - Never mark a claim verified, never change a rating, never edit any other file.
 - Reply with the Recommendation line only.
