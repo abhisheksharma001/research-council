@@ -42,6 +42,13 @@ saying `a` or `Draw.` is recorded rather than discarded, and `comparisons.jsonl`
 python3 scripts/rank.py table  --run <run>    # ratings, highest first, with comparison counts
 python3 scripts/rank.py cycles --run <run>    # X > Y > Z > X triples; draws ignored
 ```
+The `bt` column is a Bradley-Terry fit over every line of `comparisons.jsonl` at once, on
+the same scale as `elo`. Elo moves one result at a time, so the same results recorded in
+another order can give another order of hypotheses; the fit reads only who beat whom how
+often, so order cannot change it. Each hypothesis carries one virtual draw against 1200, so a
+hypothesis with no wins stays finite and one never compared reads 1200. When `elo` and `bt`
+put two hypotheses in different orders, the ranking has not settled: judge more pairs before
+trusting either. Neither number reaches FINDINGS.md; the report's table has no `bt` column.
 A cycle means the judgments disagree with each other; open a spark on the shared
 measurement (S-8) rather than trusting the table. Two candidates within 16 points are a
 tie for scheduling purposes (curiosity.md, S-8).

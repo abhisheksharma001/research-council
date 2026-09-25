@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import goal  # noqa: E402
 import rank  # noqa: E402
+import report  # noqa: E402
 
 RANK_SCRIPT = ROOT / "scripts" / "rank.py"
 FIXTURE = ROOT / "tests" / "fixtures" / "goal_booking.json"
@@ -279,6 +280,60 @@ class RankTests(unittest.TestCase):
         self.assertEqual([r.split()[0] for r in rows[1:]], ["H2", "H3", "H1"])
         self.assertEqual(rows[1].split()[1:3], ["1208", "1"])
         self.assertEqual(rows[2].split()[1:3], ["1200", "0"])
+
+    # bradley-terry
+    RESULTS = [("H1", "H2", "A"), ("H2", "H3", "A"), ("H1", "H3", "draw"), ("H1", "H2", "B"),
+               ("H1", "H3", "A")]
+
+    def comparisons(self, results):
+        (self.run / rank.COMPARISONS).write_text("".join(
+            json.dumps({"pair_id": f"P-{n}", "a": a, "b": b, "winner": w}) + "\n"
+            for n, (a, b, w) in enumerate(results, 1)), encoding="utf-8")
+
+    def test_bradley_terry_ignores_the_order_elo_depends_on(self):
+        elo_orders, bt_fits = [], []
+        for results in (self.RESULTS, self.RESULTS[::-1]):
+            self.comparisons(results)
+            bt_fits.append(rank.bradley_terry(self.run, rank.load(self.run)))
+            r = {"H1": rank.START, "H2": rank.START, "H3": rank.START}
+            for a, b, w in results:
+                r[a], r[b] = rank.elo_update(r[a], r[b], *rank.SCORE[w])
+            elo_orders.append(sorted(r, key=r.get, reverse=True))
+        self.assertNotEqual(elo_orders[0], elo_orders[1])  # same results, other order, other Elo
+        self.assertEqual(bt_fits[0], bt_fits[1])
+        self.assertEqual(sorted(bt_fits[0], key=bt_fits[0].get, reverse=True), ["H2", "H1", "H3"])
+
+    def test_bradley_terry_fit_expects_exactly_the_observed_wins(self):
+        self.comparisons(self.RESULTS)
+        fit = rank.bradley_terry(self.run, rank.load(self.run))
+        p = {i: 10 ** ((r - rank.START) / 400) for i, r in fit.items()}
+        wins = {"H1": 2.5 + 0.5, "H2": 2.0 + 0.5, "H3": 0.5 + 0.5}  # results + the virtual draw
+        for i in p:
+            expected = p[i] / (p[i] + 1)
+            for a, b, _ in self.RESULTS:
+                if i in (a, b):
+                    j = b if i == a else a
+                    expected += p[i] / (p[i] + p[j])
+            self.assertAlmostEqual(expected, wins[i], places=6)
+
+    def test_bradley_terry_stays_finite_without_wins_and_at_start_without_games(self):
+        self.write([hyp(1), hyp(2), hyp(3), hyp(4)])
+        self.comparisons([("H1", "H2", "A"), ("H1", "H2", "A"), ("H1", "H9", "A")])
+        fit = rank.bradley_terry(self.run, rank.load(self.run))
+        self.assertEqual(set(fit), {"H1", "H2", "H3", "H4"})  # H9 is not in hypotheses.json
+        self.assertLess(fit["H2"], rank.START)
+        self.assertGreater(fit["H1"], rank.START)
+        self.assertEqual((fit["H3"], fit["H4"]), (rank.START, rank.START))
+
+    def test_table_cli_adds_the_bt_column_and_the_report_table_does_not(self):
+        self.play("H2", "H1")
+        rows = run_cli("table", "--run", str(self.run)).stdout.splitlines()
+        self.assertEqual(rows[0].split()[:4], ["id", "elo", "bt", "cmp"])
+        fit = rank.bradley_terry(self.run, rank.load(self.run))
+        h2 = rows[1].split()
+        self.assertEqual(h2[:4], ["H2", "1208", str(round(fit["H2"])), "1"])
+        self.assertNotIn("bt", rank.table(rank.load(self.run)).splitlines()[0].split())
+        self.assertEqual(report.FIXED["table_header"], rank.table({"hypotheses": []}))
 
     # cli
     def test_cli_round_trip(self):
