@@ -18,7 +18,10 @@ record  looks the pair up, appends one line to comparisons.jsonl and updates `el
         `comparisons` on both hypotheses (start 1200, K=16, win 1 / draw 0.5 / loss 0).
         The winner is read case-insensitively and stored as A, B or draw.
 cycles  prints every non-transitive triple X > Y > Z > X among recorded wins.
-table   prints ratings, highest first, with comparison counts and status.
+table   prints ratings, highest first, with comparison counts and status, plus a `bt`
+        column: a Bradley-Terry fit over every line of comparisons.jsonl at once, on the
+        Elo scale. Elo moves one comparison at a time, so the same results in another order
+        give other numbers; the fit reads only the win counts, so order cannot change it.
 stop    sets one open hypothesis to status `stopped` with `stopped_reason` (the Supervisor
         runs it for each id Meta-review names; no council role may). Ratings untouched;
         `pair` never draws a stopped hypothesis.
@@ -30,6 +33,7 @@ Exit 0 ok, 1 invalid input or refused.
 """
 import argparse
 import json
+import math
 import random
 import string
 import sys
@@ -217,11 +221,49 @@ def cycles(run):
     return sorted(found)
 
 
-def table(doc):
+def bradley_terry(run, doc):
+    """{id: rating} from one Bradley-Terry fit over all of comparisons.jsonl, on the Elo scale.
+
+    A win counts 1 to the winner, a draw 0.5 to each side. Every hypothesis also gets one
+    virtual draw against a fixed 1200 reference, so one with no wins stays finite and one
+    never compared sits at 1200. Fitted by the minorise-maximise update (Hunter 2004).
+    """
+    ids = [h["id"] for h in doc["hypotheses"]]
+    wins = {i: 0.5 for i in ids}
+    games = {}
+    for c in _jsonl(Path(run) / COMPARISONS):
+        if c["a"] not in wins or c["b"] not in wins:
+            continue
+        sa, sb = SCORE[c["winner"]]
+        wins[c["a"]] += sa
+        wins[c["b"]] += sb
+        key = frozenset((c["a"], c["b"]))
+        games[key] = games.get(key, 0) + 1
+    strength = {i: 1.0 for i in ids}
+    for _ in range(10000):
+        new = {}
+        for i in ids:
+            denom = 1.0 / (strength[i] + 1.0)  # the virtual reference game
+            for key, n in games.items():
+                if i in key:
+                    (j,) = key - {i}
+                    denom += n / (strength[i] + strength[j])
+            new[i] = wins[i] / denom
+        done = max(abs(new[i] - strength[i]) for i in ids) < 1e-12 if ids else True
+        strength = new
+        if done:
+            break
+    return {i: START + 400.0 * math.log10(strength[i]) for i in ids}
+
+
+def table(doc, bt=None):
+    """Ratings table. With `bt` ({id: rating}) a Bradley-Terry column follows elo."""
     rows = sorted(doc["hypotheses"], key=lambda h: (-h["elo"], h["id"]))
-    out = [f"{'id':<6} {'elo':>6} {'cmp':>4} {'status':<8} statement"]
+    bt_head = f" {'bt':>6}" if bt is not None else ""
+    out = [f"{'id':<6} {'elo':>6}{bt_head} {'cmp':>4} {'status':<8} statement"]
     for h in rows:
-        out.append(f"{h['id']:<6} {round(h['elo']):>6} {h['comparisons']:>4} "
+        bt_cell = f" {round(bt[h['id']]):>6}" if bt is not None else ""
+        out.append(f"{h['id']:<6} {round(h['elo']):>6}{bt_cell} {h['comparisons']:>4} "
                    f"{h.get('status', ''):<8} {h.get('statement', '')[:70]}")
     return "\n".join(out)
 
@@ -260,7 +302,8 @@ def main(argv):
                 print(f"{x} > {y} > {z} > {x}")
             print(f"{len(found)} cycle(s)")
         else:
-            print(table(load(args.run)))
+            doc = load(args.run)
+            print(table(doc, bradley_terry(args.run, doc)))
     except (ValueError, OSError, json.JSONDecodeError, KeyError) as e:
         print(str(e), file=sys.stderr)
         return 1
