@@ -549,6 +549,103 @@ class EvidenceBatteryTests(Case, unittest.TestCase):
                         text.index("scripts/judge.py run --run <run> --battery evidence"))
 
 
+class StopBatteryTests(Case, unittest.TestCase):
+    """S-86: one excerpt read against one hypothesis's stop_condition, shadow only."""
+
+    STOP = "A held slot is answered without any confirmation code."
+
+    def setUp(self):
+        super().setUp()
+        doc = {"hypotheses": [
+            {"id": "H1", "statement": STATEMENT, "stop_condition": self.STOP, "status": "open",
+             "elo": 1216.0},
+            {"id": "H2", "statement": "The code arrives by email.", "status": "open"}]}
+        (self.run / "hypotheses.json").write_text(json.dumps(doc), encoding="utf-8")
+
+    def page(self, scope="public", excerpt="Held slots came back with no confirmation code."):
+        return evidence.add(self.run, {"source_type": "web", "source_uri": "https://example.org/r",
+                                       "title": "Incident notes", "locator": "Section 2",
+                                       "excerpt": excerpt, "access_scope": scope})["evidence_id"]
+
+    def test_a_search_hit_is_asked_both_questions_and_stays_unsure(self):
+        self.page()
+        before = (self.run / "hypotheses.json").read_bytes()
+        result = self.cli("run", "--run", self.run, "--battery", "stop", "--id", "E-1",
+                          "--hyp", "H1", "--adapter", "fake", "--fake-answers",
+                          FAKES / "stop-hit.json")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "judge: stop E-1 H1 unsure")
+        record = self.records()[0]
+        self.assertEqual((record["battery"], record["subject"], record["mode"]),
+                         ("stop", "E-1 H1", "shadow"))
+        self.assertEqual(record["answers"], {"observed": 0.93, "contradicts": 0.81})
+        self.assertEqual(len(self.judged()), 1)
+        self.assertEqual((self.run / "hypotheses.json").read_bytes(), before)
+
+    def test_the_call_carries_the_statement_the_stop_condition_and_one_excerpt_only(self):
+        self.page()
+        sent = {}
+
+        def opener(request, timeout=None):
+            sent["body"] = json.loads(request.data.decode("utf-8"))
+            return _Response({"answers": {"observed": 0.9, "contradicts": 0.2},
+                              "usage": {"input_tokens": 400}})
+
+        with self.with_key():
+            line, _ = judge.run_battery(self.run, "stop", "E-1", opener=opener, hyp="H1")
+        self.assertEqual(line, "judge: stop E-1 H1 unsure")
+        self.assertEqual(sent["body"]["state"], {
+            "hypothesis": {"statement": STATEMENT, "stop_condition": self.STOP},
+            "evidence": [{"id": "E-1", "locator": "Section 2",
+                          "excerpt": "Held slots came back with no confirmation code."}]})
+        self.assertEqual(set(sent["body"]["questions"]), {"observed", "contradicts"})
+
+    def test_a_private_record_never_reaches_the_adapter(self):
+        self.page(scope="private")
+        with self.with_key():
+            line, record = judge.run_battery(self.run, "stop", "E-1", opener=explode, hyp="H1")
+        self.assertEqual(line, "judge: stop E-1 H1 skipped: egress private E-1")
+        self.assertIsNone(record)
+        self.assertEqual(self.records(), [])
+
+    def test_without_the_opt_in_nothing_is_sent(self):
+        self.page()
+        (self.root / judge.OPT_IN).unlink()
+        with self.with_key():
+            line, _ = judge.run_battery(self.run, "stop", "E-1", opener=explode, hyp="H1")
+        self.assertEqual(line, "judge: stop E-1 H1 skipped: not enabled")
+
+    def test_bad_hypothesis_input_exits_1_and_writes_nothing(self):
+        self.page()
+        before = self.listing()
+        cases = ((["--battery", "stop", "--id", "E-1"], "--hyp is required"),
+                 (["--battery", "claim", "--id", "C-1", "--hyp", "H1"], "--hyp is required"),
+                 (["--battery", "stop", "--id", "E-1", "--hyp", "H9"], "unknown hypothesis: H9"),
+                 (["--battery", "stop", "--id", "E-1", "--hyp", "H2"], "H2 has no stop_condition"),
+                 (["--battery", "stop", "--id", "E-7", "--hyp", "H1"], "unknown evidence_id: E-7"))
+        for args, message in cases:
+            result = self.cli("run", "--run", self.run, *args)
+            self.assertEqual(result.returncode, 1, args)
+            self.assertIn(message, result.stderr)
+        (self.run / "hypotheses.json").unlink()
+        result = self.cli("run", "--run", self.run, "--battery", "stop", "--id", "E-1", "--hyp", "H1")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("no readable hypotheses.json", result.stderr)
+        before.pop("hypotheses.json")
+        self.assertEqual(self.listing(), before)
+
+    def test_it_stays_unsure_even_once_thresholds_are_fitted(self):
+        fitted = {q: {"low": 0.2, "high": 0.8} for q in ("observed", "contradicts")}
+        self.assertEqual(judge.decide("stop", {"observed": 0.99, "contradicts": 0.99}, fitted),
+                         "unsure")
+
+    def test_the_procedure_runs_it_on_every_record_about_a_stop_condition(self):
+        text = SKILL_MD.read_text(encoding="utf-8")
+        self.assertIn("--battery stop --id E-n --hyp H-n", " ".join(text.split()))
+        ref = (ROOT / "skills" / "research-council" / "references" / "judge.md").read_text(encoding="utf-8")
+        self.assertIn("| `stop` |", ref)
+
+
 class CasesTests(Case, unittest.TestCase):
     """The claim cases exporter: labels from Reflection's own verdicts, through the egress guard."""
 

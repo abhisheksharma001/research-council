@@ -108,7 +108,11 @@ Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrie
    page, how much it says about the unknowns, and whether the excerpt carries text addressed
    to an AI agent. You still write the claim's `limitations` yourself and compare afterwards;
    nothing it prints changes a record, and it skips entirely until the workspace opt-in file
-   names the product. Every assertion goes through
+   names the product. When a record bears on an open hypothesis's `stop_condition` (a search
+   aimed at proving it wrong found something), also run
+   `scripts/judge.py run --run <run> --battery stop --id E-n --hyp H-n`: a second reading of
+   whether the excerpt shows that observation. It never changes the hypothesis; if it
+   disagrees with your reading, read the excerpt again. Every assertion goes through
    `scripts/claims.py add --run <run> --from -` naming its evidence ids; an unknown id is
    exit 1 and nothing is written. After each `C-n recorded` line run
    `scripts/judge.py run --run <run> --battery claim --id C-n` and read `references/judge.md`:

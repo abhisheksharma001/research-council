@@ -8,15 +8,17 @@ n8n analogy: one HTTP Request node behind a Switch, with a Skip branch that is t
 The thresholds live in a Set node, not in the HTTP node, and until somebody fills that Set
 node in, every item takes the Skip branch. Nothing downstream changes.
 
-## The two batteries
+## The three batteries
 
 | battery | subject | what it asks | what it is for |
 |---|---|---|---|
 | `claim` | a claim id, `C-7` | four yes/no questions: do the excerpts say this, does one of them say the opposite, does the claim reach wider than they do, is it a conclusion rather than something written | Reflection already objects to a claim the excerpts do not support, but it runs one council round later. The judge reads the claim at the moment it is recorded, while the source is still open |
 | `evidence` | an evidence id, `E-3` | who published the page (vendor, partner, independent, other), how much it says about the goal's unknowns (1 to 3), and whether the excerpt carries text addressed to an AI agent | source strength is prose you write into a claim's `limitations` by hand, and the 2026-09-21 self-run's meta-review found six records where it was wrong. The judge gives a second opinion to compare against |
+| `stop` | an evidence id and a hypothesis id, `--id E-4 --hyp H2` | two yes/no questions: does the excerpt report the observation the hypothesis's `stop_condition` names, and does it say something that rules the hypothesis out | a search aimed at proving a hypothesis wrong is read by the one who ran it, who wanted a result. The judge reads the hit a second time with no stake in it |
 
-The evidence battery gates nothing and never will: it cannot drop a record, change a strength
-or stop a fetch. Its answers are data you read beside your own.
+The evidence and stop batteries gate nothing and never will: neither can drop a record,
+change a strength, change a hypothesis's status or stop a fetch. Their answers are data you
+read beside your own.
 
 ## What it never does
 
@@ -39,6 +41,7 @@ or stop a fetch. Its answers are data you read beside your own.
 ```bash
 python3 scripts/judge.py run --run AGI_Research/runs/<goal_id> --battery claim --id C-7
 python3 scripts/judge.py run --run AGI_Research/runs/<goal_id> --battery evidence --id E-3
+python3 scripts/judge.py run --run AGI_Research/runs/<goal_id> --battery stop --id E-4 --hyp H2
 python3 scripts/judge.py questions --battery claim        # the questions, for calibration
 ```
 
@@ -68,6 +71,7 @@ not a requirement: a page on a listed host is answered from the list with no cal
 | `judge: claim C-7 no` | the model's probabilities cross a calibrated threshold | fix the claim or its evidence, then record it again |
 | `judge: claim C-7 yes` | the excerpts look like they support it | nothing. This is not verification |
 | `judge: evidence E-3 vendor (rule: host)` | the page's host is on the opt-in file's own vendor or partner list. Decided in code, no call was made | nothing; it agrees with the list you wrote |
+| `judge: stop E-4 H2 unsure` | the model read the excerpt against H2's stop condition; the two probabilities are in `judge.jsonl` | compare with your own reading. If yours says the stop condition was seen and the judge's `observed` is low, or the other way round, read the excerpt again. The hypothesis's status is never touched |
 | `judge: evidence E-3 unsure` | the model answered; the answers are in `judge.jsonl` for you to read against your own `limitations` | nothing changes a record |
 | `judge: claim C-7 skipped: <reason>` | nothing was sent and nothing was written | carry on; the reasons are below |
 
