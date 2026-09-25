@@ -1,3 +1,4 @@
 {"ts": "2026-09-09T00:00:00+00:00", "kind": "read", "cost_usd": 0.0, "detail": "read call export"}
 {"ts": "2026-09-09T00:01:00+00:00", "kind": "subagent", "cost_usd": 0.4, "detail": "generation"}
 {"ts": "2026-09-09T00:02:00+00:00", "kind": "write", "cost_usd": null, "detail": "evidence E-1"}
+{"ts": "2026-09-09T00:03:00+00:00", "kind": "disconfirm", "cost_usd": 0.0, "detail": "searched the call export for tool-call errors and the config history for a switch-off", "hypothesis_ids": ["H1", "H2"]}

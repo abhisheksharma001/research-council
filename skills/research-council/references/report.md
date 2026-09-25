@@ -81,8 +81,11 @@ use its contemporaneous report and journal to establish the spend recorded at cl
 ## Before running it
 1. `scripts/claims.py list --run <run> --unverified`: each line will land under Unverified.
    If a claim should be a finding, add its evidence first.
-2. `scripts/rank.py table --run <run>`: the highest-rated open hypothesis becomes "Chosen";
-   stopped and refuted rows are never selected. Close or tied ratings do not establish a
+2. `scripts/rank.py table --run <run>`: the highest-rated open hypothesis becomes "Chosen",
+   but only once it has been challenged (a `contradicts` evidence record or a `disconfirm`
+   journal line names it; see `skills/research-council/references/evidence.md`). Until then it
+   is "Leading" and FINDINGS.md lists it as "(never challenged)". Stopped and refuted rows are
+   never selected. Close or tied ratings do not establish a
    meaningful preference; inspect the actual comparisons and choose a discriminating check.
 3. `scripts/budget.py check --run <run>`: the Spend line is what the user will read.
 

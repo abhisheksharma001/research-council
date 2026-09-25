@@ -11,6 +11,12 @@ Input JSON (see skills/research-council/references/evidence.md):
   locator       page, section, line range, timestamp or artifact key; required
   excerpt       the exact text seen, at most 2000 characters; required
   access_scope  public | private
+Optional, together:
+  stance          supports | contradicts | neutral, toward the hypotheses named next
+  hypothesis_ids  the hypothesis ids the excerpt bears on, e.g. ["H1"]
+
+A contradicts record counts as a challenge of each named hypothesis; report.py will not name
+a hypothesis Chosen until it has been challenged (see journal.py disconfirm).
 
 The script adds evidence_id (E-<n>), retrieved_at (UTC) and sha256 of the excerpt.
 Anything else in the input is an error. Nothing is defaulted.
@@ -27,6 +33,8 @@ from pathlib import Path
 SOURCE_TYPES = ("web", "file", "command", "user", "paper")
 ACCESS_SCOPES = ("public", "private")
 USER_FIELDS = ("source_type", "source_uri", "title", "locator", "excerpt", "access_scope")
+OPTIONAL_FIELDS = ("stance", "hypothesis_ids")
+STANCES = ("supports", "contradicts", "neutral")
 EXCERPT_MAX = 2000
 FILENAME = "evidence.jsonl"
 ID_PREFIX = "E-"
@@ -40,7 +48,7 @@ def validate(body):
     """Return a list of error strings, empty when the record is valid."""
     if not isinstance(body, dict):
         return ["evidence must be a JSON object"]
-    errors = [f"unknown field: {k}" for k in body if k not in USER_FIELDS]
+    errors = [f"unknown field: {k}" for k in body if k not in USER_FIELDS + OPTIONAL_FIELDS]
     errors += [f"missing field: {f}" for f in USER_FIELDS if f not in body]
     if errors:
         return errors
@@ -56,6 +64,14 @@ def validate(body):
         errors.append("invalid field: excerpt (must be a non-empty string)")
     elif len(ex) > EXCERPT_MAX:
         errors.append(f"invalid field: excerpt ({len(ex)} chars, max {EXCERPT_MAX})")
+    if ("stance" in body) != ("hypothesis_ids" in body):
+        errors.append("invalid field: stance and hypothesis_ids come together")
+    elif "stance" in body:
+        if body["stance"] not in STANCES:
+            errors.append(f"invalid field: stance (one of {', '.join(STANCES)})")
+        ids = body["hypothesis_ids"]
+        if not isinstance(ids, list) or not ids or not all(_nonempty_str(i) for i in ids):
+            errors.append("invalid field: hypothesis_ids (must be a non-empty list of ids)")
     return errors
 
 
@@ -86,7 +102,7 @@ def add(run, body):
     if not any((run / name).is_file() for name in ("goal.json", "task.json")):
         raise ValueError(f"no goal.json or task.json in {run}; run goal.py new or task.py new first")
     record = {"evidence_id": next_id([r["evidence_id"] for r in read(run)], ID_PREFIX)}
-    record.update({f: body[f] for f in USER_FIELDS})
+    record.update({f: body[f] for f in USER_FIELDS + OPTIONAL_FIELDS if f in body})
     record["retrieved_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     record["sha256"] = hashlib.sha256(body["excerpt"].encode("utf-8")).hexdigest()
     with (run / FILENAME).open("a", encoding="utf-8") as fh:
