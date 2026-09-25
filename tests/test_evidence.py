@@ -1,5 +1,6 @@
 import hashlib
 import json
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -12,10 +13,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import claims  # noqa: E402
 import evidence  # noqa: E402
 import goal  # noqa: E402
+import report  # noqa: E402
 
 EVIDENCE_SCRIPT = ROOT / "scripts" / "evidence.py"
 CLAIMS_SCRIPT = ROOT / "scripts" / "claims.py"
 FIXTURE = ROOT / "tests" / "fixtures" / "goal_booking.json"
+REFERENCES = ROOT / "skills" / "research-council" / "references"
+SKILL_MD = ROOT / "skills" / "research-council" / "SKILL.md"
 
 
 def ev(**over):
@@ -65,6 +69,20 @@ class EvidenceTests(unittest.TestCase):
                          ({"stance": "supports", "hypothesis_ids": []}, "hypothesis_ids")):
             with self.assertRaisesRegex(ValueError, msg):
                 evidence.add(self.run, ev(**bad))
+
+    def test_negation_search_doc_runs_and_counts_as_a_challenge(self):
+        text = (REFERENCES / "evidence.md").read_text(encoding="utf-8")
+        section = text.split("## Negation search", 1)[1].split("\n## ", 1)[0]
+        self.assertIn("`stop_condition`", section)
+        self.assertIn("literal keywords", section)
+        block = section.split("```bash\n", 1)[1].split("```", 1)[0].replace("\\\n", " ")
+        line = next(l for l in block.splitlines() if l.startswith("python3 scripts/journal.py"))
+        args = [a.replace("AGI_Research/runs/<goal_id>", str(self.run)) for a in shlex.split(line)[2:]]
+        result = run_cli(ROOT / "scripts" / "journal.py", *args)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(report.challenged(self.run, {}), {"H2"})
+        self.assertIn("negation search in `references/evidence.md`",
+                      " ".join(SKILL_MD.read_text(encoding="utf-8").split()))
 
     def test_evidence_ids_increment_from_highest(self):
         evidence.add(self.run, ev())

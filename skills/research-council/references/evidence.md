@@ -57,6 +57,24 @@ python3 scripts/journal.py add --run AGI_Research/runs/<goal_id> --kind disconfi
 `read` as usual. `report.py` will not write a hypothesis as "Chosen" until it has been
 challenged (S-75): a favourite nobody tried to break is only "Leading".
 
+## Negation search, one per open hypothesis
+Before the report, every hypothesis with status `open` in `hypotheses.json` gets at least one
+search aimed at proving it wrong. Build the query from its `stop_condition` (the observation
+that would make you drop it) as literal keywords: `grep`, a code search, or a web search with
+quoted words and `-`/`NOT` where the tool supports them. Do not use a "find similar" or
+semantic search for this: meaning-based retrieval ranks contradicting text far below lexical
+search (MRR 0.023 against 0.750 on the same set, arXiv 2603.17580), so it tends to return
+more support.
+```bash
+# H2 stop_condition: "a config diff shows no change"
+git log --since=2026-08-11 --until=2026-08-13 -- config/   # empty output
+python3 scripts/journal.py add --run AGI_Research/runs/<goal_id> --kind disconfirm --cost_usd null \
+  --hypothesis H2 --detail "git log -- config/ 11-13 Aug: no commits"
+```
+A hit is recorded with `evidence.py add` and `"stance": "contradicts"` naming the hypothesis.
+No hit is one `disconfirm` line with the exact query in `--detail`, so a reader can rerun it.
+Either way the hypothesis counts as challenged.
+
 ## Recording a claim
 ```bash
 python3 scripts/claims.py add --run AGI_Research/runs/<goal_id> --from - <<'JSON'

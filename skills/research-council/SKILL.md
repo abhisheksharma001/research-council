@@ -140,14 +140,16 @@ Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrie
    `spark.py advance`; the script refuses every skipped requirement. `progress` is written
    by the script alone; a spark marked NOISE is reported as tried and not repeated.
 8. **Report.** Read `references/report.md`. When Meta-review says stop or `budget.py check`
-   exits 2, run `scripts/report.py --run <run>`. It writes FINDINGS.md and HANDOFF.md from the
-   records alone; every claim without evidence lands under Unverified. Never edit either file
-   by hand: fix the record and rerun. Show the user both paths. For an agent/task consumer,
-   `scripts/report.py --run <run> --json` prints a structured handoff without changing files.
-   It preserves provenance and separates claim statuses; missing or malformed review records
-   keep backed claims unreviewed. It grants no action permissions and does not evaluate success.
-   Recorded review does not attest coverage or freshness. Do not publish private records or
-   update a Paperclip task without the consumer's existing authorization.
+   exits 2, run `scripts/report.py --run <run>`. On a Meta-review stop, first run the negation
+   search in `references/evidence.md` for every open hypothesis not yet challenged; after exit
+   2 skip it, and the report says Leading, not Chosen. It writes FINDINGS.md and HANDOFF.md
+   from the records alone; every claim without evidence lands under Unverified. Never edit
+   either file by hand: fix the record and rerun. Show the user both paths. For an agent/task
+   consumer, `scripts/report.py --run <run> --json` prints a structured handoff without
+   changing files. It preserves provenance and separates claim statuses; missing or malformed
+   review records keep backed claims unreviewed. It grants no action permissions and does not
+   evaluate success. Recorded review does not attest coverage or freshness. Do not publish
+   private records or update a Paperclip task without the consumer's existing authorization.
 9. **Library.** Read `references/library.md` only for an explicitly authorized library update
    in a full checkout. A portable export has no retained library or promotion authority;
    finish with its reports. Self-improvement runs remain evidence-only. For an authorized
