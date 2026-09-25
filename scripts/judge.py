@@ -4,7 +4,8 @@
 Usage:
   python3 scripts/judge.py run       --run <run-dir> --battery claim|evidence --id C-7 \
       [--adapter jev|fake] [--fake-answers <json>] [--mode shadow|gate]
-  python3 scripts/judge.py questions --battery claim|evidence
+  python3 scripts/judge.py run       --run <run-dir> --battery stop --id E-4 --hyp H2 [...]
+  python3 scripts/judge.py questions --battery claim|evidence|stop
   python3 scripts/judge.py cases     --battery claim --runs <run-dir>... [--synthetic <jsonl>] \
       --out <cases.jsonl>
 
@@ -18,7 +19,11 @@ Usage:
 The `claim` battery asks whether a claim's own excerpts say what the claim says. The `evidence`
 battery asks who published a page, how much it says about the goal's unknowns, and whether its
 excerpt carries text addressed to an AI agent; it gates nothing and never will, so its answers
-are only ever data beside the `limitations` the Supervisor writes by hand.
+are only ever data beside the `limitations` the Supervisor writes by hand. The `stop` battery
+asks whether one excerpt reports the observation a hypothesis's `stop_condition` names, and
+whether it contradicts the hypothesis; it too gates nothing, so a search hit is read twice,
+once by the Supervisor and once by the judge, and a disagreement is for the Supervisor to
+look at again. It never changes a hypothesis's status.
 
 A decision is data (CLAUDE.md invariant 3). Nothing here edits a claim, an evidence record,
 the goal or the budget, and a `yes` verifies nothing: only an evidence record does. Shadow is
@@ -46,7 +51,8 @@ threshold is defined here: `fitted` stays None until a calibration on labelled c
 in, and until then every answered decision is `unsure`.
 
 Exit 0 in shadow mode whatever the decision, 1 on bad input: an unknown battery, claim id or
-evidence id, a run with no goal.json, `--mode gate` (not wired until thresholds exist), or
+evidence id, a run with no goal.json, a `stop` call without `--hyp` or a hypothesis with no
+stop_condition, `--hyp` on another battery, `--mode gate` (not wired until thresholds exist), or
 `--adapter fake` without `--fake-answers`.
 """
 import argparse
@@ -191,7 +197,36 @@ BATTERIES = {
         "thresholds": None,
         "fitted": None,
     },
+    "stop": {
+        "record": "goal.json",
+        "questions": {
+            "observed": {
+                "type": "noul",
+                "instructions": "The `evidence` excerpt reports the observation described in "
+                                "`hypothesis.stop_condition`.",
+                "criteria": {
+                    "true": "The excerpt describes that observation as having happened, in the "
+                            "same words or a paraphrase with the same meaning.",
+                    "false": "The excerpt does not describe it, says it did not happen, or is "
+                             "about something else.",
+                },
+            },
+            "contradicts": {
+                "type": "noul",
+                "instructions": "The `evidence` excerpt says something that cannot be true at "
+                                "the same time as `hypothesis.statement`.",
+                "criteria": {
+                    "true": "The excerpt asserts a fact that rules the statement out.",
+                    "false": "The excerpt agrees with the statement, is silent about it, or is "
+                             "about something else.",
+                },
+            },
+        },
+        "thresholds": None,
+        "fitted": None,
+    },
 }
+HYPOTHESES = "hypotheses.json"
 
 
 class AdapterError(RuntimeError):
@@ -322,6 +357,31 @@ def build_evidence_state(run, evidence_id, config):
     return state, [record]
 
 
+def build_stop_state(run, evidence_id, hyp_id):
+    """(state, the one cited record) for one excerpt against one hypothesis. Raises ValueError."""
+    records = {r["evidence_id"]: r for r in evidence.read(run)}
+    if evidence_id not in records:
+        raise ValueError(f"unknown evidence_id: {evidence_id}")
+    try:
+        doc = json.loads((Path(run) / HYPOTHESES).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        raise ValueError(f"no readable {HYPOTHESES} in {run}; the stop battery needs one") from None
+    by_id = {h.get("id"): h for h in doc.get("hypotheses", []) if isinstance(h, dict)}
+    if hyp_id not in by_id:
+        raise ValueError(f"unknown hypothesis: {hyp_id}")
+    hyp = by_id[hyp_id]
+    if not isinstance(hyp.get("stop_condition"), str) or not hyp["stop_condition"].strip():
+        raise ValueError(f"{hyp_id} has no stop_condition to ask about")
+    record = records[evidence_id]
+    state = {
+        "hypothesis": {"statement": hyp.get("statement", ""),
+                       "stop_condition": hyp["stop_condition"]},
+        "evidence": [{"id": record["evidence_id"], "locator": record["locator"],
+                      "excerpt": record["excerpt"]}],
+    }
+    return state, [record]
+
+
 def egress_check(payload, records):
     """The first reason this state may not leave the machine, or None. Private records come first."""
     for record in records:
@@ -405,8 +465,8 @@ def adapter_fake(path):
 def decide(name, answers, thresholds):
     """yes, no or unsure. Without fitted thresholds every answered decision is unsure.
 
-    Only the claim battery has a decision rule. The evidence battery gates nothing, so its
-    answered decision is always `unsure`, whatever any later calibration fits.
+    Only the claim battery has a decision rule. The evidence and stop batteries gate nothing,
+    so their answered decision is always `unsure`, whatever any later calibration fits.
     """
     if name != "claim" or not thresholds:
         return "unsure"
@@ -441,14 +501,23 @@ def _record(run, name, subject, decision, result, answers, note=None):
     return f"judge: {name} {subject} {decision}" + (f" ({note})" if note else ""), record
 
 
-def run_battery(run, name, subject, adapter="jev", fake_answers=None, opener=None):
-    """Decide one subject. Returns (line to print, record or None). Raises ValueError on bad input."""
+def run_battery(run, name, subject, adapter="jev", fake_answers=None, opener=None, hyp=None):
+    """Decide one subject. Returns (line to print, record or None). Raises ValueError on bad input.
+
+    The stop battery's subject is an evidence id and `hyp` a hypothesis id; the two are printed
+    and recorded together as one subject, `E-4 H2`.
+    """
     spec = battery(name)
     run = Path(run)
     if not (run / spec["record"]).is_file():
         raise ValueError(f"no {spec['record']} in {run}; the {name} battery judges a research run")
     if adapter == "fake" and not fake_answers:
         raise ValueError("--adapter fake needs --fake-answers <path>")
+    if (name == "stop") != (hyp is not None):
+        raise ValueError("--hyp is required by the stop battery and refused by every other")
+    if name == "stop":
+        state, cited = build_stop_state(run, subject, hyp)
+        subject = f"{subject} {hyp}"
     root = workspace(run)
     if root is None or not enabled(root):
         return _skipped(name, subject, "not enabled")
@@ -458,9 +527,9 @@ def run_battery(run, name, subject, adapter="jev", fake_answers=None, opener=Non
     config = settings(root)
     if name == "claim":
         state, cited = build_claim_state(run, subject)
-    elif not config["product"]:
-        return _skipped(name, subject, "no product")
-    else:
+    elif name == "evidence":
+        if not config["product"]:
+            return _skipped(name, subject, "no product")
         state, cited = build_evidence_state(run, subject, config)
     payload = json.dumps(state, ensure_ascii=False)
     reason = egress_check(payload, cited)
@@ -472,8 +541,10 @@ def run_battery(run, name, subject, adapter="jev", fake_answers=None, opener=Non
         missing = numbers_missing(state["claim"]["statement"],
                                   [item["excerpt"] for item in state["evidence"]])
         answered = ("no", f"rule: number {missing[0]} not in any excerpt") if missing else None
-    else:
+    elif name == "evidence":
         answered = host_rule(state["page"]["uri"], config)
+    else:
+        answered = None
     if answered:
         rule = {"adapter": "rule", "model": "rule", "input_tokens": 0, "cost_usd": 0.0}
         return _record(run, name, subject, answered[0], rule, {}, note=answered[1])
@@ -641,6 +712,7 @@ def main(argv):
     r.add_argument("--run", required=True)
     r.add_argument("--battery", required=True)
     r.add_argument("--id", dest="subject", required=True)
+    r.add_argument("--hyp")
     r.add_argument("--adapter", default="jev", choices=("jev", "fake"))
     r.add_argument("--fake-answers")
     r.add_argument("--mode", default="shadow", choices=("shadow", "gate"))
@@ -661,7 +733,7 @@ def main(argv):
         if args.mode == "gate":
             raise ValueError("--mode gate has no fitted thresholds to gate on; shadow mode only")
         line, _ = run_battery(args.run, args.battery, args.subject, args.adapter,
-                              args.fake_answers)
+                              args.fake_answers, hyp=args.hyp)
     except (ValueError, OSError, KeyError) as error:
         print(str(error), file=sys.stderr)
         return 1
