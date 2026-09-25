@@ -27,16 +27,21 @@ A file such as evals/tasks/T-01.json (this one is an illustration, not a real ta
 ```
 `kind` is `golden` (a past run with a known answer), `trap` (a planted false source in `files`
 that a careful answer must not repeat) or `mind_change` (evidence in `files` that overturns the
-obvious first answer). A full set is 20 tasks with at least two traps and one mind change;
+obvious first answer). Optional `decoy_answer` holds the wrong answer a decoy invites; it must be
+a non-empty string. A full set is 20 tasks with at least two traps and one mind change;
 `python3 scripts/evals.py validate --complete` says whether the folder has it.
 
 ## The task set
-The 20 tasks in evals/tasks are synthetic: small debugging and research puzzles whose cause is
-fixed by construction in their own files, each with a plausible decoy. No real system or client
-data is used, because the one past run with a single known answer holds client data and this
-repository is public. Tests check that every known answer passes its own rubric, that neither
-the request text nor a shrug passes any `match` item, and that every trap and mind-change task
-has a `must_not_match` item. The same author wrote the council and these tasks, so read a few
+The 20 tasks in evals/tasks are synthetic debugging and research puzzles whose cause is
+fixed by construction in their own files. Each spreads its clues over at least four files, buries
+them in seeded log noise, and carries a decoy with real support (a traffic spike that ends while
+the errors go on, a second cron line that is a different job); `decoy_answer` records the wrong
+answer the decoy invites. A first pilot on easier versions was a ceiling: both arms solved each
+task in under two minutes. No real system or client data is used, because the one past run with a
+single known answer holds client data and this repository is public. Tests check that every known
+answer passes its own rubric, that the decoy answer fails it, that neither the request text nor a
+shrug passes any `match` item, and that every trap and mind-change task has a `must_not_match`
+item. The same author wrote the council and these tasks, so read a few
 before trusting a result: a set written by someone else is the stronger test.
 
 ## A session

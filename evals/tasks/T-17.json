@@ -2,23 +2,25 @@
   "id": "T-17",
   "kind": "golden",
   "request": "The job queue backlog keeps growing since Monday. Messages got bigger last week and the autoscaler rules were edited on Monday. Which one is it?",
-  "known_answer": "Monday's autoscaler edit set min_replicas and max_replicas to 2, capping consumers at 2 instead of 8; per-message processing time is unchanged despite larger messages.",
+  "known_answer": "Monday's autoscaler edit set max_replicas to 2 (it was 8), capping consumers at 2; per-message processing time rose only from 110 ms to 120 ms with the larger messages, far too little to explain the backlog.",
+  "decoy_answer": "The larger messages take much longer to process, so the consumers fall behind.",
   "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
   "files": {
-    "autoscaler.diff": "-  min_replicas: 4\n-  max_replicas: 8\n+  min_replicas: 2\n+  max_replicas: 2\n",
-    "consumer-metrics.csv": "day,consumers,avg_ms_per_msg,backlog\nfri,8,41,120\nmon,2,42,9800\ntue,2,41,21400\n",
-    "message-size.md": "Average message size grew 3.1 KB -> 4.0 KB last Wednesday; throughput stayed flat Wed-Fri.\n"
+    "autoscaler.diff": "--- hpa.yaml\n+++ hpa.yaml\n spec:\n-  minReplicas: 2\n-  maxReplicas: 8\n+  minReplicas: 2\n+  maxReplicas: 2   # temp while we test node pool\n   targetCPU: 70\n",
+    "consumer-metrics.csv": "day,consumers,msgs_in_per_min,msgs_done_per_min,ms_per_msg\nThu,6,2400,2410,110\nFri,7,2600,2590,112\nMon,2,2500,1000,120\nTue,2,2550,1010,119\n",
+    "message-size.md": "Median message size: 3.1 KB (last month) -> 5.4 KB (since Wed).\n",
+    "queue-depth.log": "Mon 00:00:00 INFO queue depth sample\nMon 00:16:39 INFO queue depth sample\nMon 00:33:29 INFO queue depth sample\nMon 00:49:01 INFO queue depth sample\nMon 01:11:19 INFO queue depth sample\nMon 01:23:01 INFO queue depth sample\nMon 01:44:42 INFO queue depth sample\nMon 01:55:03 INFO queue depth sample\nMon 02:06:09 INFO queue depth sample\nMon 02:14:29 INFO queue depth sample\nMon 02:34:03 INFO queue depth sample\nMon 02:42:07 INFO queue depth sample\nMon 02:59:03 INFO queue depth sample\nMon 03:07:15 INFO queue depth sample\nMon 03:19:46 INFO queue depth sample\nMon 03:36:28 INFO queue depth sample\nMon 03:49:50 INFO queue depth sample\nMon 04:09:47 INFO queue depth sample\nMon 04:31:11 INFO queue depth sample\nMon 04:41:18 INFO queue depth sample\nMon 04:48:51 INFO queue depth sample\nMon 05:09:07 INFO queue depth sample\nMon 05:16:50 INFO queue depth sample\nMon 05:31:22 INFO queue depth sample\nMon 05:47:46 INFO queue depth sample\nMon 06:00:00 INFO depth=210000\nMon 06:08:57 INFO queue depth sample\nMon 06:25:20 INFO queue depth sample\nMon 06:44:26 INFO queue depth sample\nMon 07:05:41 INFO queue depth sample\nMon 07:24:50 INFO queue depth sample\nMon 07:32:53 INFO queue depth sample\nMon 07:44:24 INFO queue depth sample\nMon 08:04:47 INFO queue depth sample\nMon 08:16:26 INFO queue depth sample\nMon 08:30:58 INFO queue depth sample\nMon 08:38:53 INFO queue depth sample\nMon 09:01:03 INFO queue depth sample\nMon 09:12:11 INFO queue depth sample\nMon 09:28:39 INFO queue depth sample\nMon 09:44:48 INFO queue depth sample\nMon 10:00:25 INFO queue depth sample\nMon 10:19:43 INFO queue depth sample\nMon 10:39:46 INFO queue depth sample\nMon 10:50:40 INFO queue depth sample\nMon 11:11:27 INFO queue depth sample\nMon 11:33:08 INFO queue depth sample\nMon 11:42:06 INFO queue depth sample\nMon 11:51:07 INFO queue depth sample\nMon 11:59:57 INFO queue depth sample\nMon 12:00:00 INFO depth=301000\n"
   },
   "rubric": [
     {
       "id": "R1",
-      "text": "names the replica limit",
+      "text": "names the replica cap",
       "match": "replica"
     },
     {
       "id": "R2",
-      "text": "says consumers were capped from 8 to 2",
-      "match": "max_replicas|capp?(ed|ing)|8 ?(to|->|→) ?2|down to 2"
+      "text": "names max_replicas or the cap to 2",
+      "match": "max_?replicas|capp?(ed|ing)|8 ?(to|->|→) ?2|down to 2"
     }
   ]
 }

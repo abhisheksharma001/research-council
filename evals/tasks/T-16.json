@@ -1,18 +1,21 @@
 {
   "id": "T-16",
   "kind": "golden",
-  "request": "Some users get certificate errors on our site since the renewal on 20 September; most do not. Did the renewal go wrong or are those users' devices broken?",
-  "known_answer": "The renewed certificate is served without its intermediate certificate, so clients that do not cache or fetch intermediates (older Android) fail the chain; modern browsers fill it in.",
+  "request": "Some users get certificate errors on our site since the renewal on 20 September; most do not. Most of them use older phones. Did the renewal go wrong or are those devices broken?",
+  "known_answer": "The renewed certificate is served without its intermediate certificate, so clients that do not fetch or cache intermediates (older Android WebViews, curl) fail the chain; desktop browsers fetch it themselves. The old deployment served the full chain.",
+  "decoy_answer": "Those older phones have outdated root certificates, so they cannot trust the new certificate.",
   "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
   "files": {
-    "openssl-output.txt": "Certificate chain\n 0 s:CN = www.example.org\n   i:CN = Example Issuing CA R3\n---\nVerify return code: 21 (unable to verify the first certificate)\n",
-    "renewal-notes.md": "2026-09-20 renewed cert, uploaded leaf.pem only (fullchain.pem not found).\n",
-    "error-reports.csv": "client,errors\nAndroid 7,318\nAndroid 13,0\nChrome desktop,0\n"
+    "openssl-output.txt": "$ openssl s_client -connect shop.example:443 -showcerts\nCertificate chain\n 0 s:CN = shop.example\n   i:C = US, O = Example Trust, CN = Example TLS CA R3\n---\nVerify return code: 21 (unable to verify the first certificate)\n",
+    "openssl-output-before.txt": "Certificate chain\n 0 s:CN = shop.example\n   i:CN = Example TLS CA R3\n 1 s:CN = Example TLS CA R3\n   i:CN = Example Root X1\nVerify return code: 0 (ok)\n",
+    "renewal-notes.md": "2026-09-20 renewed via new ACME client; deployed cert.pem to the load balancer (fullchain.pem not used by the new client config).\n",
+    "error-reports.csv": "client,count\nAndroid 7 WebView,410\nAndroid 8 WebView,288\ncurl (monitoring),96\nChrome desktop,0\nSafari macOS,0\n",
+    "root-store-notes.md": "Example Root X1 is in Android root stores since Android 5.\n"
   },
   "rubric": [
     {
       "id": "R1",
-      "text": "names the intermediate certificate",
+      "text": "names the missing intermediate certificate",
       "match": "intermediate"
     },
     {

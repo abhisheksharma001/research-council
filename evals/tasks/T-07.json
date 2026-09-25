@@ -1,24 +1,28 @@
 {
   "id": "T-07",
   "kind": "golden",
-  "request": "test_report_dates fails on CI about once a day and never locally. Is the CI machine flaky or is the test wrong?",
-  "known_answer": "test_report_dates compares date.today() in local time with a UTC timestamp; CI runs in UTC+5:30 and fails between 00:00 and 05:30 local, when the two dates differ. The test is wrong, not the machine.",
+  "request": "test_report_dates fails on CI about once a day and never locally. The CI machine also shows disk warnings. Is the CI machine flaky or is the test wrong?",
+  "known_answer": "The test compares date.today() (local date; the CI runner sets TZ=Asia/Kolkata, UTC+5:30) with the date of a UTC timestamp; every failure is between 18:30 and 24:00 UTC, when the two dates differ. The test is wrong, not the machine.",
+  "decoy_answer": "The CI machine is running low on disk, which makes the test flaky there.",
   "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
   "files": {
-    "ci-failures.txt": "run 4411 2026-09-20T18:42Z FAIL test_report_dates (runner TZ=Asia/Kolkata)\nrun 4415 2026-09-21T19:05Z FAIL test_report_dates\nrun 4418 2026-09-22T09:10Z PASS\n",
-    "test_reports.py": "def test_report_dates():\n    r = make_report()\n    assert r.created.date() == datetime.date.today()  # r.created is UTC\n",
-    "runner.md": "CI runners: 4 vCPU, TZ=Asia/Kolkata, retries disabled. No other test fails.\n"
+    "ci-failures.txt": "run 8812 2026-09-01T19:02Z test_report_dates FAILED expected 2026-09-01 got 2026-09-02\nrun 8840 2026-09-02T21:45Z test_report_dates FAILED expected 2026-09-02 got 2026-09-03\nrun 8871 2026-09-03T18:31Z test_report_dates FAILED expected 2026-09-03 got 2026-09-04\nrun 8902 2026-09-04T23:10Z test_report_dates FAILED expected 2026-09-04 got 2026-09-05\n",
+    "ci-passes.txt": "run 8800 2026-09-01T00:00Z test_report_dates ok\nrun 8801 2026-09-02T05:07Z test_report_dates ok\nrun 8802 2026-09-03T10:14Z test_report_dates ok\nrun 8803 2026-09-04T15:21Z test_report_dates ok\nrun 8804 2026-09-01T02:28Z test_report_dates ok\nrun 8805 2026-09-02T07:35Z test_report_dates ok\nrun 8806 2026-09-03T12:42Z test_report_dates ok\nrun 8807 2026-09-04T17:49Z test_report_dates ok\nrun 8808 2026-09-01T04:56Z test_report_dates ok\nrun 8809 2026-09-02T09:03Z test_report_dates ok\nrun 8810 2026-09-03T14:10Z test_report_dates ok\nrun 8811 2026-09-04T01:17Z test_report_dates ok\nrun 8812 2026-09-01T06:24Z test_report_dates ok\nrun 8813 2026-09-02T11:31Z test_report_dates ok\nrun 8814 2026-09-03T16:38Z test_report_dates ok\nrun 8815 2026-09-04T03:45Z test_report_dates ok\nrun 8816 2026-09-01T08:52Z test_report_dates ok\nrun 8817 2026-09-02T13:59Z test_report_dates ok\nrun 8818 2026-09-03T00:06Z test_report_dates ok\nrun 8819 2026-09-04T05:13Z test_report_dates ok\nrun 8820 2026-09-01T10:20Z test_report_dates ok\nrun 8821 2026-09-02T15:27Z test_report_dates ok\nrun 8822 2026-09-03T02:34Z test_report_dates ok\nrun 8823 2026-09-04T07:41Z test_report_dates ok\n",
+    "tests/test_reports.py": "from datetime import date\nfrom reports import stamp\n\ndef test_report_dates():\n    r = stamp()\n    assert r.created_utc.date() == date.today()\n",
+    "reports.py": "from datetime import datetime, timezone\n\nclass R:\n    def __init__(self, t): self.created_utc = t\n\ndef stamp():\n    return R(datetime.now(timezone.utc))\n",
+    "ci/runner.env": "RUNNER_POOL=blr-2\nTZ=Asia/Kolkata\nPYTHONHASHSEED=0\n",
+    "ci-machine-health.md": "blr-2 runners: disk usage 84-89% most days, warning at 85%. No failed jobs attributed to disk in September.\n"
   },
   "rubric": [
     {
       "id": "R1",
-      "text": "names the time zone or UTC",
-      "match": "time ?zone|\\butc\\b|tz"
+      "text": "names the timezone or UTC",
+      "match": "time ?zone|\\butc\\b|\\btz\\b|kolkata"
     },
     {
       "id": "R2",
-      "text": "names the local date against UTC comparison",
-      "match": "date\\.today|today\\(\\)|local (time|date)|midnight|05:30|kolkata"
+      "text": "names the local date / date.today mismatch",
+      "match": "date\\.today|today\\(\\)|local (time|date)|midnight|18:30|5:30"
     }
   ]
 }

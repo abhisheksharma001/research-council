@@ -43,6 +43,7 @@ KINDS = ("golden", "trap", "mind_change")
 ARMS = ("council", "plain")
 COMPLETE = {"total": 20, "trap": 2, "mind_change": 1}
 TASK_FIELDS = ("id", "kind", "request", "known_answer", "source", "rubric")
+OPTIONAL_TASK_FIELDS = ("files", "decoy_answer")
 TASK_ID = re.compile(r"T-\d{2,}")
 
 
@@ -54,7 +55,7 @@ def validate_task(body, stem):
     """Error strings for one task, empty when valid."""
     if not isinstance(body, dict):
         return [f"{stem}: task must be a JSON object"]
-    errors = [f"{stem}: unknown field: {k}" for k in body if k not in TASK_FIELDS + ("files",)]
+    errors = [f"{stem}: unknown field: {k}" for k in body if k not in TASK_FIELDS + OPTIONAL_TASK_FIELDS]
     errors += [f"{stem}: missing field: {k}" for k in TASK_FIELDS if k not in body]
     if errors:
         return errors
@@ -62,8 +63,8 @@ def validate_task(body, stem):
         errors.append(f"{stem}: id must be T-<nn> and match the file name")
     if body["kind"] not in KINDS:
         errors.append(f"{stem}: kind must be one of {', '.join(KINDS)}")
-    for key in ("request", "known_answer", "source"):
-        if not _nonempty(body[key]):
+    for key in ("request", "known_answer", "source", "decoy_answer"):
+        if key in body and not _nonempty(body[key]):
             errors.append(f"{stem}: {key} must be a non-empty string")
     files = body.get("files", {})
     if not isinstance(files, dict) or not all(

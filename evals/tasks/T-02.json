@@ -1,14 +1,19 @@
 {
   "id": "T-02",
   "kind": "golden",
-  "request": "Our nightly backup has produced no archive since 3 September, but cron says the job runs every night and exits 0. Is cron broken, is the disk full, or is it something else?",
-  "known_answer": "A run crashed on 3 September and left /var/run/backup.lock behind; backup.sh exits 0 whenever that lock file exists, so every later run skips silently. Removing the stale lock fixes it.",
+  "request": "Our nightly backup has produced no archive since 3 September, but cron says the job runs every night. The server's disk warning has been firing too. Is the disk full, is cron broken, or is it something else?",
+  "known_answer": "The 3 September run was killed by the OOM killer while holding /var/run/backup.lock, and the lock was never removed; acquire_lock in lib/common.sh makes every later run exit 0 early when that lock exists. The full root disk does not matter because archives go to /backups, which is 31% full.",
+  "decoy_answer": "The root disk is 91% full, so tar cannot write the archive and the backup fails.",
   "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
   "files": {
-    "backup.sh": "#!/bin/sh\nif [ -f /var/run/backup.lock ]; then exit 0; fi\ntouch /var/run/backup.lock\ntar czf /backups/$(date +%F).tgz /srv/data\nrm /var/run/backup.lock\n",
-    "cron.log": "Sep 02 02:00:01 backup.sh start\nSep 02 02:14:37 backup.sh exit 0\nSep 03 02:00:01 backup.sh start\nSep 03 02:03:12 backup.sh killed (OOM)\nSep 04 02:00:01 backup.sh start\nSep 04 02:00:01 backup.sh exit 0\nSep 05 02:00:01 backup.sh start\nSep 05 02:00:01 backup.sh exit 0\n",
-    "ls-var-run.txt": "-rw-r--r-- 1 root root 0 Sep  3 02:00 backup.lock\n",
-    "df.txt": "/backups  2.0T  610G  1.4T  31%\n"
+    "backup.sh": "#!/bin/sh\n. /opt/backup/lib/common.sh\nacquire_lock /var/run/backup.lock || exit 0\ntar czf /backups/$(date +%F).tgz /srv/data\nrelease_lock /var/run/backup.lock\n",
+    "lib/common.sh": "# shared helpers for ops scripts\nlog() { logger -t ops \"$*\"; }\nacquire_lock() { [ -e \"$1\" ] && return 1; touch \"$1\"; }\nrelease_lock() { rm -f \"$1\"; }\nretry() { n=0; until \"$@\"; do n=$((n+1)); [ $n -ge 3 ] && return 1; sleep 5; done; }\n",
+    "cron.log": "Sep 01 01:30:01 logrotate exit 0\nSep 01 02:00:01 backup.sh start\nSep 01 02:11:37 backup.sh exit 0\nSep 01 03:00:01 certbot renew exit 0\nSep 02 01:30:01 logrotate exit 0\nSep 02 02:00:01 backup.sh start\nSep 02 02:12:37 backup.sh exit 0\nSep 02 03:00:01 certbot renew exit 0\nSep 03 01:30:01 logrotate exit 0\nSep 03 02:00:01 backup.sh start\nSep 03 03:00:01 certbot renew exit 0\nSep 04 01:30:01 logrotate exit 0\nSep 04 02:00:01 backup.sh start\nSep 04 02:00:01 backup.sh exit 0\nSep 04 03:00:01 certbot renew exit 0\nSep 05 01:30:01 logrotate exit 0\nSep 05 02:00:01 backup.sh start\nSep 05 02:00:01 backup.sh exit 0\nSep 05 03:00:01 certbot renew exit 0\nSep 06 01:30:01 logrotate exit 0\nSep 06 02:00:01 backup.sh start\nSep 06 02:00:01 backup.sh exit 0\nSep 06 03:00:01 certbot renew exit 0\nSep 07 01:30:01 logrotate exit 0\nSep 07 02:00:01 backup.sh start\nSep 07 02:00:01 backup.sh exit 0\nSep 07 03:00:01 certbot renew exit 0\nSep 08 01:30:01 logrotate exit 0\nSep 08 02:00:01 backup.sh start\nSep 08 02:00:01 backup.sh exit 0\nSep 08 03:00:01 certbot renew exit 0\nSep 09 01:30:01 logrotate exit 0\nSep 09 02:00:01 backup.sh start\nSep 09 02:00:01 backup.sh exit 0\nSep 09 03:00:01 certbot renew exit 0\n",
+    "kern.log": "Sep 03 02:03:12 srv-7 kernel: Out of memory: Killed process 88213 (tar) total-vm:9123400kB\nSep 03 02:03:12 srv-7 kernel: oom_reaper: reaped process 88213 (tar)\nSep 06 11:20:40 srv-7 kernel: e1000e: eth0 NIC Link is Up 1000 Mbps\n",
+    "ls-var-run.txt": "drwxr-xr-x 2 root root  60 Sep  1 00:00 apache2\n-rw-r--r-- 1 root root   0 Sep  3 02:00 backup.lock\n-rw-r--r-- 1 root root   5 Sep  1 00:00 crond.pid\n-rw-r--r-- 1 root root   5 Sep  1 00:00 sshd.pid\nsrwxrwxrwx 1 root root   0 Sep  1 00:00 docker.sock\n",
+    "df.txt": "Filesystem  Size  Used Avail Use% Mounted on\n/dev/sda1    50G   46G  4.1G  91% /\n/dev/sdb1   2.0T  610G  1.4T  31% /backups\n",
+    "alerts.md": "disk_usage_high srv-7 / 91% (firing since Aug 28)\n",
+    "runbook.md": "# On-call runbook (general)\n\n1. Check the status page and the last deploys.\n2. Look for a traffic change.\n3. Check database health: CPU, connections, replica lag.\n4. Roll back only with the incident lead.\n5. Write what you checked in the incident channel.\n"
   },
   "rubric": [
     {
@@ -18,7 +23,7 @@
     },
     {
       "id": "R2",
-      "text": "says the lock is stale or left by the crashed run",
+      "text": "says the lock is stale or left by the killed run",
       "match": "stale|left (over|behind)|crash|oom|killed"
     }
   ]

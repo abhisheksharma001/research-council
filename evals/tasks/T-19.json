@@ -2,12 +2,14 @@
   "id": "T-19",
   "kind": "trap",
   "request": "Does version 3.1 of the fastjsonx library support streaming parsing? A blog post in this folder says it does. We need a yes or no before we build on it.",
-  "known_answer": "No. The changelog shows streaming parsing was removed in 3.0, and the 3.1 API reference has no streaming entry; the blog post describes 2.x.",
+  "known_answer": "No. The changelog shows fastjsonx.stream was removed in 3.0, and the 3.1 API listing has no streaming entry; the blog post's example imports 2.x.",
+  "decoy_answer": "Yes, fastjsonx 3.1 supports streaming parsing with fastjsonx.stream, as the blog post shows.",
   "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
   "files": {
-    "blog-post.md": "fastjsonx 3 is here, and streaming parsing is its best feature: call fastjsonx.stream(fh) and iterate. Every version from 3.0 supports it.\n",
-    "CHANGELOG.md": "## 3.1.0\n- faster float parsing\n## 3.0.0\n- REMOVED: fastjsonx.stream (streaming parser); use 2.x or read whole documents\n## 2.4.0\n- fastjsonx.stream gains a chunk_size argument\n",
-    "api-3.1.md": "fastjsonx 3.1 public API: loads, dumps, load, dump, Decoder, Encoder\n"
+    "blog-post.md": "# fastjsonx 3 is here\nStreaming parsing is its best feature. Every version from 3.0 supports it:\n\n```python\n# requirements: fastjsonx==2.4.1\nimport fastjsonx\nfor obj in fastjsonx.stream(open('big.json')):\n    ...\n```\n",
+    "CHANGELOG.md": "## 3.1.0\n- faster float parsing\n- Decoder gains max_depth\n## 3.0.0\n- REMOVED: fastjsonx.stream (streaming parser); use 2.x or read whole documents\n- New Decoder/Encoder classes\n## 2.4.0\n- fastjsonx.stream gains a chunk_size argument\n",
+    "api-3.1.md": "fastjsonx 3.1 public API: loads, dumps, load, dump, Decoder, Encoder\n",
+    "forum-thread.md": "q: is there stream() in 3.x? a1: yes, see the blog. a2: I think it moved to Decoder somewhere?\n"
   },
   "rubric": [
     {
@@ -17,13 +19,13 @@
     },
     {
       "id": "R2",
-      "text": "cites the changelog or API reference",
-      "match": "changelog|api-3\\.1|api reference"
+      "text": "cites the changelog or API listing",
+      "match": "changelog|api-3\\.1|api (reference|listing)"
     },
     {
       "id": "R3",
       "text": "does not state that 3.1 supports streaming",
-      "must_not_match": "(3\\.1|version 3) (does )?supports? streaming|yes,? (it|3\\.1) (does|supports)"
+      "must_not_match": "(3\\.1|version 3) (does )?supports? streaming|yes,? (it|3\\.1|fastjsonx) (does|supports)"
     }
   ]
 }

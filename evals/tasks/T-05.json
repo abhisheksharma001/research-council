@@ -1,19 +1,23 @@
 {
   "id": "T-05",
   "kind": "golden",
-  "request": "Our voice agent tells callers the wrong opening hours, but only on Sundays. The prompt was edited last week and the hours file was updated too. Which one is wrong?",
-  "known_answer": "hours.json names the Sunday key \"sun\" while the code reads \"sunday\", so the lookup misses and the default hours are read out. The prompt edit is unrelated.",
+  "request": "Our voice agent tells callers the wrong opening hours, but only on Sundays. The prompt was edited last week and the hours were updated too. Which change is wrong, and why?",
+  "known_answer": "hours.json stores Sunday under the key \"sun\", but hours_for is called with calendar.day_name, which gives \"Sunday\", lowercased to \"sunday\"; the three-letter keys only match for other days because a separate alias map covers mon-sat. The lookup misses and falls back to the default 9-18. The prompt edit is unrelated.",
+  "decoy_answer": "The prompt edit last week confused the model about Sundays, so it reads the wrong hours.",
   "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
   "files": {
     "hours.json": "{\"mon\": \"9-18\", \"tue\": \"9-18\", \"wed\": \"9-18\", \"thu\": \"9-18\", \"fri\": \"9-18\", \"sat\": \"10-16\", \"sun\": \"closed\"}\n",
-    "hours_lookup.py": "DEFAULT = '9-18'\ndef hours_for(day_name, table):\n    return table.get(day_name.lower(), DEFAULT)  # day_name is e.g. 'Sunday'\n",
-    "prompt-diff.md": "- Say the hours in full sentences.\n+ Say the hours in full sentences and offer to text them.\n"
+    "agent/hours_lookup.py": "from agent.days import ALIASES\nDEFAULT = '9-18'\n\ndef hours_for(day_name, table):\n    key = ALIASES.get(day_name.lower(), day_name.lower())\n    return table.get(key, DEFAULT)\n",
+    "agent/days.py": "# old table used long names; map the ones we renamed\nALIASES = {'monday': 'mon', 'tuesday': 'tue', 'wednesday': 'wed', 'thursday': 'thu', 'friday': 'fri', 'saturday': 'sat'}\n",
+    "agent/tools.py": "import calendar\nfrom agent.hours_lookup import hours_for\n\ndef opening_hours(date, table):\n    return hours_for(calendar.day_name[date.weekday()], table)\n",
+    "prompt-diff.md": "- Say the hours in full sentences.\n+ Say the hours in full sentences and offer to text them. On Sundays, be brief.\n",
+    "call-transcripts.md": "Sun 14 Sep caller: are you open today? agent: yes, we are open 9 to 6 today.\nSat 13 Sep caller: open now? agent: we're open 10 to 4 today.\nMon 15 Sep caller: hours? agent: 9 to 6.\n"
   },
   "rubric": [
     {
       "id": "R1",
-      "text": "names hours.json or the lookup",
-      "match": "hours\\.json|hours_lookup|lookup"
+      "text": "names hours.json, the lookup or the alias map",
+      "match": "hours\\.json|hours_lookup|lookup|alias"
     },
     {
       "id": "R2",

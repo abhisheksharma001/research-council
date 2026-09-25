@@ -1,24 +1,26 @@
 {
   "id": "T-13",
   "kind": "golden",
-  "request": "Spanish-language calls come out of transcription as English nonsense. We changed the audio codec on 6 September and refactored the transcription client on 9 September. Which one broke it?",
-  "known_answer": "The 9 September refactor hardcoded language \"en\" in the transcription request; the garbled Spanish transcripts start on 9 September (39 of 41 calls in quality.csv), not 6 September. The codec change is unrelated.",
+  "request": "Spanish-language calls come out of transcription as English nonsense. We changed the audio codec and also refactored the transcription client earlier this month. Which change broke it?",
+  "known_answer": "The client refactor on 9 September hardcoded language=\"en\" in the transcription request; Spanish transcripts are garbled from 9 September, not from the 6 September codec change, which only lowered English scores slightly.",
+  "decoy_answer": "The 6 September audio codec change degraded audio quality, which garbles the transcripts.",
   "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
   "files": {
-    "transcribe_client.py": "def transcribe(audio):\n    return api.transcribe(audio, language='en')  # was: language=detect(audio)\n",
-    "quality.csv": "date,spanish_calls,garbled\n2026-09-05,40,0\n2026-09-07,38,0\n2026-09-09,41,39\n2026-09-10,44,43\n",
-    "changes.md": "2026-09-06 codec 16kHz -> 8kHz narrowband\n2026-09-09 transcription client refactor\n"
+    "transcribe_client.py": "def transcribe(audio, call):\n    # language detection moved to the router; keep request simple\n    return api.post('/v1/transcribe', audio=audio, language='en', model='asr-large')\n",
+    "quality.csv": "date,lang,calls,garbled\n2026-09-05,es,40,1\n2026-09-05,en,300,3\n2026-09-06,es,42,1\n2026-09-06,en,310,7\n2026-09-08,es,39,2\n2026-09-08,en,305,7\n2026-09-09,es,41,39\n2026-09-09,en,298,6\n2026-09-10,es,44,43\n2026-09-10,en,302,7\n",
+    "changes.md": "2026-09-06 media: switch Opus 24k -> Opus 16k\n2026-09-09 platform: transcription client refactor (#882)\n2026-09-09 docs: update README\n",
+    "router.py": "def route(call):\n    # TODO: pass detected language to the client again (dropped in #882)\n    return transcribe(call.audio, call)\n"
   },
   "rubric": [
     {
       "id": "R1",
-      "text": "names the hardcoded language in the client",
-      "match": "hard.?cod|transcribe_client|language\\s*=\\s*.?en"
+      "text": "names the hardcoded English language",
+      "match": "hard.?cod|language\\s*=\\s*.?en|'en'|\\\"en\\\""
     },
     {
       "id": "R2",
-      "text": "cites the quality data that dates the break",
-      "match": "quality\\.csv|39 ?(of|/) ?41|43 ?(of|/) ?44"
+      "text": "dates the break to 9 September",
+      "match": "9 sep|sep(tember)? 9|09-09|#?882"
     }
   ]
 }
