@@ -1,0 +1,24 @@
+{
+  "id": "T-13",
+  "kind": "golden",
+  "request": "Spanish-language calls come out of transcription as English nonsense. We changed the audio codec on 6 September and refactored the transcription client on 9 September. Which one broke it?",
+  "known_answer": "The 9 September refactor hardcoded language \"en\" in the transcription request; the garbled Spanish transcripts start on 9 September (39 of 41 calls in quality.csv), not 6 September. The codec change is unrelated.",
+  "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
+  "files": {
+    "transcribe_client.py": "def transcribe(audio):\n    return api.transcribe(audio, language='en')  # was: language=detect(audio)\n",
+    "quality.csv": "date,spanish_calls,garbled\n2026-09-05,40,0\n2026-09-07,38,0\n2026-09-09,41,39\n2026-09-10,44,43\n",
+    "changes.md": "2026-09-06 codec 16kHz -> 8kHz narrowband\n2026-09-09 transcription client refactor\n"
+  },
+  "rubric": [
+    {
+      "id": "R1",
+      "text": "names the hardcoded language in the client",
+      "match": "hard.?cod|transcribe_client|language\\s*=\\s*.?en"
+    },
+    {
+      "id": "R2",
+      "text": "cites the quality data that dates the break",
+      "match": "quality\\.csv|39 ?(of|/) ?41|43 ?(of|/) ?44"
+    }
+  ]
+}

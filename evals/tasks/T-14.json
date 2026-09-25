@@ -1,0 +1,24 @@
+{
+  "id": "T-14",
+  "kind": "golden",
+  "request": "The nightly ETL loads zero rows into orders_eu since 9 September. Is the source empty or is the job broken?",
+  "known_answer": "A 9 September migration renamed the source view orders_eu to orders_eu_v2; the ETL still queries the old name, logs 'view not found' and loads nothing. The source has data.",
+  "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
+  "files": {
+    "etl.log": "09-09 01:00 extract orders_eu: relation \"orders_eu\" does not exist; loaded 0 rows\n09-10 01:00 extract orders_eu: relation \"orders_eu\" does not exist; loaded 0 rows\n",
+    "migrations.md": "0142 (2026-09-09): rename view orders_eu -> orders_eu_v2\n",
+    "row-counts.txt": "orders_eu_v2: 18,204 rows for 2026-09-09\n"
+  },
+  "rubric": [
+    {
+      "id": "R1",
+      "text": "names the renamed view",
+      "match": "orders_eu_v2|renam"
+    },
+    {
+      "id": "R2",
+      "text": "names the migration",
+      "match": "migration|0142"
+    }
+  ]
+}

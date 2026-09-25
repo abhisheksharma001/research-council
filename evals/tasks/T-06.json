@@ -1,0 +1,24 @@
+{
+  "id": "T-06",
+  "kind": "golden",
+  "request": "API p99 latency rose from 180 ms to 900 ms on 12 September. We upgraded the database on 11 September and rolled out a feature flag on 12 September. What caused it?",
+  "known_answer": "The 12 September flag turned on synchronous request logging to object storage in eu-west only; only eu-west latency rose. The 11 September database upgrade touched all regions and changed nothing.",
+  "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
+  "files": {
+    "p99-by-region.csv": "date,us-east,eu-west,ap-south\n2026-09-10,178,182,185\n2026-09-11,176,184,181\n2026-09-12,179,902,183\n",
+    "flags.log": "2026-09-12 09:00 enable audit_log_sync=true region=eu-west (writes each request to object storage before responding)\n",
+    "db-upgrade.md": "2026-09-11: Postgres 15.6 -> 15.8, all regions, no config change.\n"
+  },
+  "rubric": [
+    {
+      "id": "R1",
+      "text": "names eu-west",
+      "match": "eu-west"
+    },
+    {
+      "id": "R2",
+      "text": "names the synchronous logging flag",
+      "match": "audit_log_sync|synchronous|sync(hronous)? log"
+    }
+  ]
+}

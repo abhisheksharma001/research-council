@@ -1,0 +1,25 @@
+{
+  "id": "T-02",
+  "kind": "golden",
+  "request": "Our nightly backup has produced no archive since 3 September, but cron says the job runs every night and exits 0. Is cron broken, is the disk full, or is it something else?",
+  "known_answer": "A run crashed on 3 September and left /var/run/backup.lock behind; backup.sh exits 0 whenever that lock file exists, so every later run skips silently. Removing the stale lock fixes it.",
+  "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
+  "files": {
+    "backup.sh": "#!/bin/sh\nif [ -f /var/run/backup.lock ]; then exit 0; fi\ntouch /var/run/backup.lock\ntar czf /backups/$(date +%F).tgz /srv/data\nrm /var/run/backup.lock\n",
+    "cron.log": "Sep 02 02:00:01 backup.sh start\nSep 02 02:14:37 backup.sh exit 0\nSep 03 02:00:01 backup.sh start\nSep 03 02:03:12 backup.sh killed (OOM)\nSep 04 02:00:01 backup.sh start\nSep 04 02:00:01 backup.sh exit 0\nSep 05 02:00:01 backup.sh start\nSep 05 02:00:01 backup.sh exit 0\n",
+    "ls-var-run.txt": "-rw-r--r-- 1 root root 0 Sep  3 02:00 backup.lock\n",
+    "df.txt": "/backups  2.0T  610G  1.4T  31%\n"
+  },
+  "rubric": [
+    {
+      "id": "R1",
+      "text": "names the lock file",
+      "match": "lock"
+    },
+    {
+      "id": "R2",
+      "text": "says the lock is stale or left by the crashed run",
+      "match": "stale|left (over|behind)|crash|oom|killed"
+    }
+  ]
+}

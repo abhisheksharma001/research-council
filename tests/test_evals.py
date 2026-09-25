@@ -81,6 +81,20 @@ class EvalsTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0 if full else 1, r.stderr)
         self.assertEqual(evals.COMPLETE, {"total": 20, "trap": 2, "mind_change": 1})
 
+    def test_the_repo_tasks_are_synthetic_and_their_rubrics_discriminate(self):
+        tasks = evals.load_tasks()
+        self.assertEqual(evals.counts(tasks), {"total": 20, "golden": 17, "trap": 2, "mind_change": 1})
+        for tid, t in tasks.items():
+            self.assertTrue(t["source"].startswith("synthetic:"), tid)
+            self.assertTrue(t["files"], tid)
+            positive = [i["id"] for i in t["rubric"] if "match" in i]
+            self.assertTrue(all(evals.score(t, t["known_answer"]).values()), f"{tid} known answer fails")
+            for text in (t["request"], "I could not determine the cause from these files."):
+                passed = evals.score(t, text)
+                self.assertFalse(any(passed[r] for r in positive), f"{tid} passes on: {text[:40]}")
+            if t["kind"] != "golden":
+                self.assertTrue(any("must_not_match" in i for i in t["rubric"]), tid)
+
     # plan
     def test_the_plan_pairs_arms_and_alternates_who_goes_first(self):
         steps = evals.plan(["T-02", "T-01"], 2)

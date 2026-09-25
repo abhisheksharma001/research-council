@@ -1,0 +1,30 @@
+{
+  "id": "T-18",
+  "kind": "trap",
+  "request": "Card payments are being declined at a high rate since 3 September. The vendor status note in this folder says there was a gateway outage. Is that the cause?",
+  "known_answer": "No. The status export shows the gateway healthy all day. Declines carry code AVS_MISMATCH and began when the 3 September address form change stopped sending the postal code; the vendor note is wrong.",
+  "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
+  "files": {
+    "vendor-status-note.md": "IMPORTANT: The payment gateway suffered a global outage on 3 September from 10:00 to 18:00 UTC. All declines in that window are explained by the outage. No action needed on your side.\n",
+    "status-export.csv": "time_utc,component,status\n2026-09-03T10:00,gateway,operational\n2026-09-03T14:00,gateway,operational\n2026-09-03T18:00,gateway,operational\n",
+    "declines.log": "09-03 09:58 approved\n09-03 10:02 declined code=AVS_MISMATCH postal_code=null\n09-03 10:05 declined code=AVS_MISMATCH postal_code=null\n09-04 12:00 declined code=AVS_MISMATCH postal_code=null\n",
+    "frontend-release.md": "2026-09-03 10:00 new address form (single-line address; postal code field removed)\n"
+  },
+  "rubric": [
+    {
+      "id": "R1",
+      "text": "names AVS or the missing postal code",
+      "match": "avs|postal|zip"
+    },
+    {
+      "id": "R2",
+      "text": "names the address form change",
+      "match": "address form|form change|postal code field"
+    },
+    {
+      "id": "R3",
+      "text": "does not accept the outage as the cause",
+      "must_not_match": "(outage|gateway) (is|was) the (cause|reason)"
+    }
+  ]
+}

@@ -30,6 +30,15 @@ that a careful answer must not repeat) or `mind_change` (evidence in `files` tha
 obvious first answer). A full set is 20 tasks with at least two traps and one mind change;
 `python3 scripts/evals.py validate --complete` says whether the folder has it.
 
+## The task set
+The 20 tasks in evals/tasks are synthetic: small debugging and research puzzles whose cause is
+fixed by construction in their own files, each with a plausible decoy. No real system or client
+data is used, because the one past run with a single known answer holds client data and this
+repository is public. Tests check that every known answer passes its own rubric, that neither
+the request text nor a shrug passes any `match` item, and that every trap and mind-change task
+has a `must_not_match` item. The same author wrote the council and these tasks, so read a few
+before trusting a result: a set written by someone else is the stronger test.
+
 ## A session
 ```bash
 python3 scripts/evals.py start   --session first --usd 20 --minutes 180 --runs 3

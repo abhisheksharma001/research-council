@@ -1,0 +1,24 @@
+{
+  "id": "T-17",
+  "kind": "golden",
+  "request": "The job queue backlog keeps growing since Monday. Messages got bigger last week and the autoscaler rules were edited on Monday. Which one is it?",
+  "known_answer": "Monday's autoscaler edit set min_replicas and max_replicas to 2, capping consumers at 2 instead of 8; per-message processing time is unchanged despite larger messages.",
+  "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
+  "files": {
+    "autoscaler.diff": "-  min_replicas: 4\n-  max_replicas: 8\n+  min_replicas: 2\n+  max_replicas: 2\n",
+    "consumer-metrics.csv": "day,consumers,avg_ms_per_msg,backlog\nfri,8,41,120\nmon,2,42,9800\ntue,2,41,21400\n",
+    "message-size.md": "Average message size grew 3.1 KB -> 4.0 KB last Wednesday; throughput stayed flat Wed-Fri.\n"
+  },
+  "rubric": [
+    {
+      "id": "R1",
+      "text": "names the replica limit",
+      "match": "replica"
+    },
+    {
+      "id": "R2",
+      "text": "says consumers were capped from 8 to 2",
+      "match": "max_replicas|capp?(ed|ing)|8 ?(to|->|→) ?2|down to 2"
+    }
+  ]
+}

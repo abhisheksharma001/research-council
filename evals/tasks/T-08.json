@@ -1,0 +1,24 @@
+{
+  "id": "T-08",
+  "kind": "golden",
+  "request": "Some customers were charged twice on 1 September. Finance suspects the billing cron ran twice. Was it the cron or something else?",
+  "known_answer": "The payment gateway returned 504 timeouts, the new billing client retried, and it sent no idempotency key, so the gateway accepted both charges. The cron ran once.",
+  "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
+  "files": {
+    "billing.log": "09-01 03:00:00 cron billing start (pid 7712)\n09-01 03:00:04 charge cust 2211 -> 504 gateway timeout; retry 1\n09-01 03:00:09 charge cust 2211 -> 200 ok\n09-01 03:12:40 cron billing end (pid 7712)\n",
+    "gateway-report.csv": "customer,charge_id,amount\n2211,ch_A1,49.00\n2211,ch_A2,49.00\n",
+    "client-changelog.md": "billing-client 2.0 (Aug 29): new HTTP layer with automatic retries. Idempotency-Key header: not yet ported.\n"
+  },
+  "rubric": [
+    {
+      "id": "R1",
+      "text": "names idempotency",
+      "match": "idempoten"
+    },
+    {
+      "id": "R2",
+      "text": "names the retry after the timeout",
+      "match": "retr"
+    }
+  ]
+}

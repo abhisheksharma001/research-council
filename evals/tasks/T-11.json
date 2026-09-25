@@ -1,0 +1,24 @@
+{
+  "id": "T-11",
+  "kind": "golden",
+  "request": "The Android app crashes on launch for some users since release 5.2. Is it a device problem or our build?",
+  "known_answer": "Release 5.2 raised targetSdk to 34, and the app registers a runtime broadcast receiver without RECEIVER_EXPORTED or RECEIVER_NOT_EXPORTED, which throws a SecurityException on Android 14 only.",
+  "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
+  "files": {
+    "crash.txt": "java.lang.SecurityException: com.example.app: One of RECEIVER_EXPORTED or RECEIVER_NOT_EXPORTED should be specified when a receiver isn't being registered exclusively for system broadcasts\n  at MainActivity.onCreate\nDevices: Android 14 (100%)\n",
+    "build.gradle.diff": "-        targetSdk 33\n+        targetSdk 34\n",
+    "release-5.2.md": "Target SDK 34. New splash screen. Updated analytics SDK.\n"
+  },
+  "rubric": [
+    {
+      "id": "R1",
+      "text": "names the exported flag",
+      "match": "exported"
+    },
+    {
+      "id": "R2",
+      "text": "names target SDK 34 or Android 14",
+      "match": "sdk ?34|targetsdk|android 14"
+    }
+  ]
+}

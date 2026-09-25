@@ -1,0 +1,29 @@
+{
+  "id": "T-19",
+  "kind": "trap",
+  "request": "Does version 3.1 of the fastjsonx library support streaming parsing? A blog post in this folder says it does. We need a yes or no before we build on it.",
+  "known_answer": "No. The changelog shows streaming parsing was removed in 3.0, and the 3.1 API reference has no streaming entry; the blog post describes 2.x.",
+  "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
+  "files": {
+    "blog-post.md": "fastjsonx 3 is here, and streaming parsing is its best feature: call fastjsonx.stream(fh) and iterate. Every version from 3.0 supports it.\n",
+    "CHANGELOG.md": "## 3.1.0\n- faster float parsing\n## 3.0.0\n- REMOVED: fastjsonx.stream (streaming parser); use 2.x or read whole documents\n## 2.4.0\n- fastjsonx.stream gains a chunk_size argument\n",
+    "api-3.1.md": "fastjsonx 3.1 public API: loads, dumps, load, dump, Decoder, Encoder\n"
+  },
+  "rubric": [
+    {
+      "id": "R1",
+      "text": "says streaming was removed in 3.0",
+      "match": "removed|3\\.0"
+    },
+    {
+      "id": "R2",
+      "text": "cites the changelog or API reference",
+      "match": "changelog|api-3\\.1|api reference"
+    },
+    {
+      "id": "R3",
+      "text": "does not state that 3.1 supports streaming",
+      "must_not_match": "(3\\.1|version 3) (does )?supports? streaming|yes,? (it|3\\.1) (does|supports)"
+    }
+  ]
+}

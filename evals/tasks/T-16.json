@@ -1,0 +1,24 @@
+{
+  "id": "T-16",
+  "kind": "golden",
+  "request": "Some users get certificate errors on our site since the renewal on 20 September; most do not. Did the renewal go wrong or are those users' devices broken?",
+  "known_answer": "The renewed certificate is served without its intermediate certificate, so clients that do not cache or fetch intermediates (older Android) fail the chain; modern browsers fill it in.",
+  "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
+  "files": {
+    "openssl-output.txt": "Certificate chain\n 0 s:CN = www.example.org\n   i:CN = Example Issuing CA R3\n---\nVerify return code: 21 (unable to verify the first certificate)\n",
+    "renewal-notes.md": "2026-09-20 renewed cert, uploaded leaf.pem only (fullchain.pem not found).\n",
+    "error-reports.csv": "client,errors\nAndroid 7,318\nAndroid 13,0\nChrome desktop,0\n"
+  },
+  "rubric": [
+    {
+      "id": "R1",
+      "text": "names the intermediate certificate",
+      "match": "intermediate"
+    },
+    {
+      "id": "R2",
+      "text": "names the chain",
+      "match": "chain"
+    }
+  ]
+}
