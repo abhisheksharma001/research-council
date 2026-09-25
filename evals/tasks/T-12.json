@@ -1,0 +1,27 @@
+{
+  "id": "T-12",
+  "kind": "golden",
+  "request": "The log server's disk filled up overnight. We ran a promotion yesterday and traffic was up. Is the log volume real traffic or a config mistake?",
+  "known_answer": "On 2 September the app log level was set to DEBUG, which writes debug.log; logrotate only covers app.log and access.log, so debug.log grew to 180 GB unrotated. Promo traffic was up 20% and access.log grew in proportion, a few GB.",
+  "decoy_answer": "The promotion drove 20% more traffic, and the extra log volume filled the disk.",
+  "source": "synthetic: the cause is fixed by construction in this task's files; no real system or client",
+  "files": {
+    "du.txt": "180G /var/log/app/debug.log\n4.1G /var/log/app/app.log\n3.8G /var/log/app/access.log\n1.2G /var/log/app/app.log.1\n1.0G /var/log/app/access.log.1\n",
+    "config-history.md": "2026-09-02 app.yaml: log_level info -> debug (investigating B-311, revert after)\n2026-08-15 app.yaml: add access log sampling 100%\n",
+    "logrotate.conf": "/var/log/app/app.log /var/log/app/access.log {\n  daily\n  rotate 7\n  compress\n}\n",
+    "traffic.md": "Promo day 2026-09-24: requests +20% vs 7-day mean. access.log daily size 3.2 GB -> 3.8 GB.\n",
+    "disk-alerts.md": "2026-09-24 22:10 log-1 /var 95%\n2026-09-25 03:40 log-1 /var 100% writes failing\n"
+  },
+  "rubric": [
+    {
+      "id": "R1",
+      "text": "names the debug log level",
+      "match": "debug"
+    },
+    {
+      "id": "R2",
+      "text": "names the missing rotation",
+      "match": "rotat"
+    }
+  ]
+}

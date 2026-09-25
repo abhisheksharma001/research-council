@@ -52,12 +52,13 @@ class EvalsTests(unittest.TestCase):
     def test_a_bad_task_is_refused_with_every_problem(self):
         self.put(task("T-03", kind="easy", rubric=[{"id": "R1", "text": "x", "match": "(",
                                                     "must_not_match": "y"}]),
-                 task("T-04", files={"../escape.md": "x"}))
+                 task("T-04", files={"../escape.md": "x"}, decoy_answer=" "))
         (self.tasks / "T-05.json").write_text(json.dumps(task("T-9")), encoding="utf-8")
         with self.assertRaises(ValueError) as caught:
             evals.load_tasks(self.tasks)
         text = str(caught.exception)
-        for part in ("T-03: kind", "T-03: each rubric item", "T-04: files", "T-05: id must be"):
+        for part in ("T-03: kind", "T-03: each rubric item", "T-04: files", "T-04: decoy_answer",
+                     "T-05: id must be"):
             self.assertIn(part, text)
 
     def test_a_bad_regex_and_repeated_rubric_ids_are_refused(self):
@@ -67,6 +68,10 @@ class EvalsTests(unittest.TestCase):
             evals.load_tasks(self.tasks)
         self.assertIn("T-03: rubric R1 is not a valid regular expression", str(caught.exception))
         self.assertIn("T-03: rubric ids repeat", str(caught.exception))
+
+    def test_a_task_may_carry_a_decoy_answer(self):
+        self.put(task("T-03", decoy_answer="The upstream API broke."))
+        self.assertIn("T-03", evals.load_tasks(self.tasks))
 
     def test_scoring_is_case_insensitive_and_must_not_match_fails_on_a_hit(self):
         t = task("T-01")
@@ -80,6 +85,22 @@ class EvalsTests(unittest.TestCase):
         full = all(found[k] >= v for k, v in evals.COMPLETE.items())
         self.assertEqual(r.returncode, 0 if full else 1, r.stderr)
         self.assertEqual(evals.COMPLETE, {"total": 20, "trap": 2, "mind_change": 1})
+
+    def test_the_repo_tasks_are_synthetic_and_their_rubrics_discriminate(self):
+        tasks = evals.load_tasks()
+        self.assertEqual(evals.counts(tasks), {"total": 20, "golden": 17, "trap": 2, "mind_change": 1})
+        for tid, t in tasks.items():
+            self.assertTrue(t["source"].startswith("synthetic:"), tid)
+            self.assertTrue(t["files"], tid)
+            positive = [i["id"] for i in t["rubric"] if "match" in i]
+            self.assertTrue(all(evals.score(t, t["known_answer"]).values()), f"{tid} known answer fails")
+            self.assertFalse(all(evals.score(t, t["decoy_answer"]).values()), f"{tid} decoy answer passes")
+            self.assertGreaterEqual(len(t["files"]), 4, f"{tid} needs its clues spread over files")
+            for text in (t["request"], "I could not determine the cause from these files."):
+                passed = evals.score(t, text)
+                self.assertFalse(any(passed[r] for r in positive), f"{tid} passes on: {text[:40]}")
+            if t["kind"] != "golden":
+                self.assertTrue(any("must_not_match" in i for i in t["rubric"]), tid)
 
     # plan
     def test_the_plan_pairs_arms_and_alternates_who_goes_first(self):
