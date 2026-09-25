@@ -21,12 +21,14 @@
       "id": "H1",
       "statement": "The upstream repair-order API was failing and the agent's tool calls errored.",
       "predicted_result": "Tool-call attempts continue at normal volume in the raw call records but carry error results.",
+      "stop_condition": "attempts drop to zero",
       "strongest_alternative": "H2"
     },
     {
       "id": "H2",
       "statement": "The tool was switched off in the assistant configuration, so no calls were attempted.",
       "predicted_result": "Tool-call attempts drop to near zero in the raw call records and a configuration change is logged near 04:00 UTC.",
+      "stop_condition": "a config diff shows no change",
       "strongest_alternative": "H1"
     }
   ],

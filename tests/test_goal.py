@@ -58,6 +58,18 @@ class GoalTests(unittest.TestCase):
         self.assertIn("missing field: competing_hypotheses[1].predicted_result",
                       goal.validate(b))
 
+    def test_hypothesis_without_stop_condition_rejected(self):
+        b = body()
+        del b["competing_hypotheses"][0]["stop_condition"]
+        self.assertIn("missing field: competing_hypotheses[0].stop_condition", goal.validate(b))
+
+    def test_stop_condition_restating_prediction_rejected(self):
+        b = body()
+        h = b["competing_hypotheses"][1]
+        h["stop_condition"] = "  " + h["predicted_result"].upper() + " "
+        self.assertEqual(goal.validate(b), ["invalid field: competing_hypotheses[1].stop_condition "
+                                            "(must differ from predicted_result)"])
+
     def test_empty_success_criteria_rejected(self):
         b = body()
         b["success_criteria"] = []

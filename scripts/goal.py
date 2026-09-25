@@ -33,7 +33,7 @@ from pathlib import Path
 STRING_FIELDS = ("request_text", "desired_outcome", "scope", "baseline")
 LIST_FIELDS = ("observations", "suggested_explanations", "unknowns", "allowed_actions",
                "prohibited_actions")
-HYPOTHESIS_KEYS = ("id", "statement", "predicted_result", "strongest_alternative")
+HYPOTHESIS_KEYS = ("id", "statement", "predicted_result", "stop_condition", "strongest_alternative")
 CRITERION_KEYS = ("measurement", "evaluator", "environment", "pass_condition")
 BUDGET_NUMBERS = ("minutes", "max_actions", "max_subagents", "usd_estimate_cap")
 MIN_HYPOTHESES = 2
@@ -52,6 +52,12 @@ def _is_number(v):
 
 def _nonempty_str(v):
     return isinstance(v, str) and v.strip() != ""
+
+
+def refutes_nothing(h):
+    """True when a hypothesis's stop_condition only restates its predicted_result."""
+    stop, pred = h.get("stop_condition"), h.get("predicted_result")
+    return _nonempty_str(stop) and _nonempty_str(pred) and stop.strip().casefold() == pred.strip().casefold()
 
 
 def validate(body):
@@ -87,6 +93,9 @@ def validate(body):
             for k in HYPOTHESIS_KEYS:
                 if not _nonempty_str(h.get(k)):
                     errors.append(f"missing field: competing_hypotheses[{i}].{k}")
+            if refutes_nothing(h):
+                errors.append(f"invalid field: competing_hypotheses[{i}].stop_condition "
+                              "(must differ from predicted_result)")
             ids.append(h.get("id"))
         if len(set(ids)) != len(ids):
             errors.append("invalid field: competing_hypotheses (ids must be unique)")

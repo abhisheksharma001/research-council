@@ -36,7 +36,7 @@ Fill every field. Lists may be empty only where nothing is known; say so in `unk
 | `desired_outcome` | what a good answer looks like to the user |
 | `scope` | what data and systems are in bounds |
 | `unknowns` | what nobody knows yet; leave them as questions |
-| `competing_hypotheses` | at least two; each has `id`, `statement`, `predicted_result`, `strongest_alternative` (the id of the rival it must beat) |
+| `competing_hypotheses` | at least two; each has `id`, `statement`, `predicted_result`, `stop_condition`, `strongest_alternative` (the id of the rival it must beat) |
 | `success_criteria` | at least one; each has `measurement`, `evaluator`, `environment`, `pass_condition` |
 | `baseline` | what is believed today, before any work |
 | `allowed_actions` | what the run may do |
@@ -54,6 +54,9 @@ Example: `tests/fixtures/goal_booking.json`.
   conclusion, not a hypothesis.
 - `predicted_result` says what the evidence will look like if the hypothesis is true. If two
   hypotheses predict the same result, they are one hypothesis.
+- `stop_condition` names the observation that would prove the hypothesis wrong, written now,
+  before any evidence is read, so it cannot be bent to fit what is found later. It must
+  differ from `predicted_result`; `new` refuses one that only restates the prediction.
 
 ## Commands
 ```bash

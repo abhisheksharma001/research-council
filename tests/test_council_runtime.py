@@ -37,8 +37,7 @@ class CouncilRuntimeTests(unittest.TestCase):
                               input=input, text=True, capture_output=True)
 
     def generation(self):
-        hypotheses = [{**h, "needed_evidence": ["a recorded observation"],
-                       "stop_condition": "a repeated contradiction", "parent_id": None, "status": "open"}
+        hypotheses = [{**h, "needed_evidence": ["a recorded observation"], "parent_id": None, "status": "open"}
                       for h in self.body["competing_hypotheses"]]
         ids = [h["id"] for h in hypotheses]
         return {"hypotheses": hypotheses, "investigations": [{"id": "I-1", "discriminates": ids,
@@ -231,8 +230,24 @@ class CouncilRuntimeTests(unittest.TestCase):
         council.accept(self.run, packet["request_id"], reply)
         self.assertEqual(rank.load(self.run)["hypotheses"][0]["elo"], 1350.0)
         packet = council.prepare(self.run, "generation")
-        reply["hypotheses"][0]["stop_condition"] = "erase the old boundary"
+        reply["hypotheses"][2]["stop_condition"] = "erase the old boundary"
         with self.assertRaisesRegex(ValueError, "existing"):
+            council.accept(self.run, packet["request_id"], reply)
+
+    def test_generation_keeps_the_frozen_stop_condition(self):
+        packet = council.prepare(self.run, "generation")
+        reply = self.generation()
+        reply["hypotheses"][0]["stop_condition"] = "nothing could refute this"
+        with self.assertRaisesRegex(ValueError, "frozen"):
+            council.accept(self.run, packet["request_id"], reply)
+
+    def test_new_hypothesis_stop_condition_must_differ_from_prediction(self):
+        packet = council.prepare(self.run, "generation")
+        reply = self.generation()
+        extra = copy.deepcopy(reply["hypotheses"][0])
+        extra.update(id="H3", statement="Another explanation", stop_condition=extra["predicted_result"])
+        reply["hypotheses"].append(extra)
+        with self.assertRaisesRegex(ValueError, "stop_condition must differ"):
             council.accept(self.run, packet["request_id"], reply)
 
     def test_investigations_require_known_ids_and_different_predictions(self):

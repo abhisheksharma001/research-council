@@ -27,7 +27,7 @@ INPUTS = ("goal.json", "claims.jsonl", "evidence.jsonl", "hypotheses.json", "obj
           "pairs.jsonl", "comparisons.jsonl", "meta.md", "spark.json")
 OUTPUTS = {"generation": "hypotheses.json", "reflection": "objections.json",
            "ranking": "comparisons.jsonl", "meta-review": "meta.md"}
-H_FIELDS = goal.HYPOTHESIS_KEYS + ("needed_evidence", "stop_condition", "parent_id", "status")
+H_FIELDS = goal.HYPOTHESIS_KEYS + ("needed_evidence", "parent_id", "status")
 RETURN_ONLY = ("Return-only mode: use the supplied role instructions, but return its output as JSON "
                "instead of writing files. Do not call tools, fetch sources, execute commands, or spawn workers. "
                "For meta-review return {\"content\": \"the complete meta.md text\"}; other roles return their "
@@ -184,8 +184,10 @@ def _generation(run, reply, g):
     frozen = {h["id"]: h for h in g["competing_hypotheses"]}
     for h in by.values():
         _keys(h, H_FIELDS)
-        for key in (*goal.HYPOTHESIS_KEYS, "stop_condition"):
+        for key in goal.HYPOTHESIS_KEYS:
             _text(h[key], key)
+        if goal.refutes_nothing(h):
+            raise ValueError("stop_condition must differ from predicted_result")
         _texts(h["needed_evidence"], "needed_evidence")
         if h["strongest_alternative"] not in by or h["strongest_alternative"] == h["id"]:
             raise ValueError("strongest_alternative must name another hypothesis")
