@@ -28,9 +28,10 @@ investigations. Frozen hypothesis fields and existing entries cannot be rewritte
    Roles do not fetch. Validate suggested paths and predictions instead of trusting them.
 2. Spawn Reflection. Save the validated reply as `objections.json`. A `blocking: true`
    objection keeps an evidence-backed claim out of findings until resolved by new evidence.
-3. Spawn Ranking for one blinded pair. With the return-only channel, prepare creates the
-   pair using the seed you supply, and accept records the winner; do not also call pair or
-   record manually. With native roles, use `scripts/rank.py pair` and `scripts/rank.py record`.
+3. Spawn Ranking for one blinded pair, then a fresh Ranking worker for the same pair in
+   the swapped order (`references/rank.md`). With the return-only channel, prepare creates
+   the pair using the seed you supply (the next prepare issues its order 2), and accept
+   records each verdict; do not also call pair or record manually. With native roles, use `scripts/rank.py pair` and `scripts/rank.py record`.
    Never send full hypotheses, authors, ratings, or the goal to the Ranking worker.
 4. Spawn Meta-review. Read its Recommendation line. `continue` names one next investigation;
    `stop` ends the round. If it names `stop: H1, H4`, verify the cited objection and run
@@ -124,7 +125,7 @@ python3 scripts/journal.py add --run <run> --kind subagent --cost_usd null --det
 
 Run no script that writes into the run folder between the snapshot and the check. Draw the
 pair first, so its blinded JSON is in the prompt and the folder is settled before the
-snapshot is taken. The four files the Supervisor's own scripts write are excluded from the
+snapshot is taken. The five files the Supervisor's own scripts write are excluded from the
 comparison anyway (below), but a write to any other file in that window is reported as the
 role's, which is not what happened and not what the reader should be told.
 
@@ -147,7 +148,7 @@ run folder with its snapshot: Generation may change only `hypotheses.json`, Meta
 only `meta.md`, Reflection and Ranking nothing. New, changed, or removed files outside
 those outputs are violations. Stop, preserve the files for inspection, and do not consume
 violating content. Do not delete or restore user files without explicit permission.
-`journal.jsonl`, `judge.jsonl`, `pairs.jsonl`, `comparisons.jsonl` and the controller's
+`journal.jsonl`, `judge.jsonl`, `pairs.jsonl`, `verdicts.jsonl`, `comparisons.jsonl` and the controller's
 `fence/` directory are excluded from this detector: the Supervisor's own scripts write them
 and no role has a path to.
 The detector observes run-folder changes after the fact; it does not prevent outside reads,
