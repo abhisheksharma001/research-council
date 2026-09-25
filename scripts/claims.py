@@ -18,6 +18,11 @@ A claim with an empty evidence_ids list is stored but is unverified (CLAUDE.md
 invariant 2). A claim naming an evidence_id that does not exist is refused and
 nothing is written. The script adds claim_id (C-<n>).
 
+A statement that quotes text in double quotes ("..." or “...”) must find every quoted
+span in one of its cited excerpts, compared ignoring case and runs of whitespace; a span found
+in none is refused and nothing is written. A claim with no evidence ids is not checked: it is
+already reported as unverified. Single quotes are not read, since an apostrophe looks the same.
+
 `supersede` appends {"claim_id": "C-a", "superseded_by": "C-b", "reason": ...} to the same
 file; no existing line is rewritten. Both ids must exist, C-b must have evidence, C-a must
 not already be superseded, else exit 1 and nothing is written. `list` marks the claim
@@ -27,6 +32,7 @@ Exit 0 ok, 1 invalid input.
 """
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -37,6 +43,7 @@ CLAIM_TYPES = ("observed", "inferred", "predicted")
 USER_FIELDS = ("statement", "claim_type", "scope", "evidence_ids", "test_ids", "limitations")
 FILENAME = "claims.jsonl"
 ID_PREFIX = "C-"
+QUOTED = re.compile(r'"([^"]+)"|“([^”]+)”')
 
 
 def _nonempty_str(v):
@@ -74,6 +81,17 @@ def validate(body, known_evidence):
         if eid not in known_evidence:
             errors.append(f"unknown evidence_id: {eid}")
     return errors
+
+
+def _fold(text):
+    return " ".join(text.split()).casefold()
+
+
+def quotes_missing(statement, excerpts):
+    """Quoted spans in the statement that no excerpt contains, ignoring case and whitespace."""
+    seen = [_fold(e) for e in excerpts]
+    spans = [a or b for a, b in QUOTED.findall(statement)]
+    return [span for span in spans if _fold(span) and not any(_fold(span) in e for e in seen)]
 
 
 def _lines(run):
@@ -128,8 +146,12 @@ def add(run, body):
     run = Path(run)
     if not (run / "goal.json").is_file():
         raise ValueError(f"no goal.json in {run}; run goal.py new first")
-    known = {r["evidence_id"] for r in evidence.read(run)}
+    known = {r["evidence_id"]: r["excerpt"] for r in evidence.read(run)}
     errors = validate(body, known)
+    if not errors and body["evidence_ids"]:
+        cited = [known[eid] for eid in body["evidence_ids"]]
+        errors = [f"quote not in any cited excerpt: \"{span}\""
+                  for span in quotes_missing(body["statement"], cited)]
     if errors:
         raise ValueError("\n".join(errors))
     claim = {"claim_id": evidence.next_id([c["claim_id"] for c in read(run)], ID_PREFIX)}
