@@ -11,9 +11,12 @@ Input JSON (see skills/research-council/references/evidence.md):
   locator       page, section, line range, timestamp or artifact key; required
   excerpt       the exact text seen, at most 2000 characters; required
   access_scope  public | private
+  unknowns      optional: goal unknowns this record bears on, by number from 1, e.g. [2];
+                read by coverage.py, which counts sources per unknown before the report
 
 The script adds evidence_id (E-<n>), retrieved_at (UTC) and sha256 of the excerpt.
-Anything else in the input is an error. Nothing is defaulted.
+Anything else in the input is an error. Nothing is defaulted; `unknowns` is stored only when
+given, and a number above the goal's own count of unknowns is refused.
 
 Exit 0 ok, 1 invalid input.
 """
@@ -27,6 +30,7 @@ from pathlib import Path
 SOURCE_TYPES = ("web", "file", "command", "user", "paper")
 ACCESS_SCOPES = ("public", "private")
 USER_FIELDS = ("source_type", "source_uri", "title", "locator", "excerpt", "access_scope")
+OPTIONAL_FIELDS = ("unknowns",)
 EXCERPT_MAX = 2000
 FILENAME = "evidence.jsonl"
 ID_PREFIX = "E-"
@@ -40,7 +44,7 @@ def validate(body):
     """Return a list of error strings, empty when the record is valid."""
     if not isinstance(body, dict):
         return ["evidence must be a JSON object"]
-    errors = [f"unknown field: {k}" for k in body if k not in USER_FIELDS]
+    errors = [f"unknown field: {k}" for k in body if k not in USER_FIELDS + OPTIONAL_FIELDS]
     errors += [f"missing field: {f}" for f in USER_FIELDS if f not in body]
     if errors:
         return errors
@@ -56,6 +60,11 @@ def validate(body):
         errors.append("invalid field: excerpt (must be a non-empty string)")
     elif len(ex) > EXCERPT_MAX:
         errors.append(f"invalid field: excerpt ({len(ex)} chars, max {EXCERPT_MAX})")
+    if "unknowns" in body:
+        nums = body["unknowns"]
+        if (not isinstance(nums, list) or not nums or len(set(map(repr, nums))) != len(nums)
+                or not all(type(n) is int and n >= 1 for n in nums)):
+            errors.append("invalid field: unknowns (a non-empty list of distinct numbers from 1)")
     return errors
 
 
@@ -85,8 +94,15 @@ def add(run, body):
         raise ValueError("\n".join(errors))
     if not any((run / name).is_file() for name in ("goal.json", "task.json")):
         raise ValueError(f"no goal.json or task.json in {run}; run goal.py new or task.py new first")
+    if "unknowns" in body:
+        if not (run / "goal.json").is_file():
+            raise ValueError("invalid field: unknowns (only a goal run has unknowns)")
+        count = len(json.loads((run / "goal.json").read_text(encoding="utf-8"))["unknowns"])
+        over = [n for n in body["unknowns"] if n > count]
+        if over:
+            raise ValueError(f"invalid field: unknowns ({over[0]} is above the goal's {count})")
     record = {"evidence_id": next_id([r["evidence_id"] for r in read(run)], ID_PREFIX)}
-    record.update({f: body[f] for f in USER_FIELDS})
+    record.update({f: body[f] for f in USER_FIELDS + OPTIONAL_FIELDS if f in body})
     record["retrieved_at"] = datetime.now(timezone.utc).isoformat(timespec="seconds")
     record["sha256"] = hashlib.sha256(body["excerpt"].encode("utf-8")).hexdigest()
     with (run / FILENAME).open("a", encoding="utf-8") as fh:

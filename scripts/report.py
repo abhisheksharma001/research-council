@@ -272,7 +272,8 @@ def structured_handoff(run):
     if len(claim_ids) != len(set(claim_ids)):
         raise ValueError("duplicate claim_id")
     for record in ev.values():
-        errors = evidence.validate({key: record.get(key) for key in evidence.USER_FIELDS})
+        errors = evidence.validate({key: record.get(key) for key in evidence.USER_FIELDS}
+                                   | {k: record[k] for k in evidence.OPTIONAL_FIELDS if k in record})
         if errors:
             raise ValueError("; ".join(errors))
         if not claims._nonempty_str(record["evidence_id"]) or not claims._nonempty_str(record.get("retrieved_at")):
@@ -321,7 +322,8 @@ def structured_handoff(run):
                    "objections": review, "blocking_objections": blocked},
         "claims": exported_claims,
         "findings": [c["claim_id"] for c in groups["evidence_backed"]],
-        "evidence": [{key: record[key] for key in ("evidence_id", *evidence.USER_FIELDS, "retrieved_at", "sha256")}
+        "evidence": [{key: record[key] for key in ("evidence_id", *evidence.USER_FIELDS, "retrieved_at", "sha256",
+                                                   *evidence.OPTIONAL_FIELDS) if key in record}
                      for record in ev.values()],
         "next_investigation": next_investigation,
         "unknowns": g["unknowns"],

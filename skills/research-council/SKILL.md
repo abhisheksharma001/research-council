@@ -139,7 +139,10 @@ Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrie
    tie within 16 Elo points. Walk it through `strategies/fire.md` with `spark.py trial` and
    `spark.py advance`; the script refuses every skipped requirement. `progress` is written
    by the script alone; a spark marked NOISE is reported as tried and not repeated.
-8. **Report.** Read `references/report.md`. When Meta-review says stop or `budget.py check`
+8. **Report.** Read `references/report.md`. When Meta-review says stop, first run
+   `scripts/coverage.py check --run <run> --min 2`: exit 2 names each goal unknown with fewer
+   than two sources; send one worker into each gap (budget check first), record what it
+   brings, and rerun the check. When it exits 0, or `budget.py check`
    exits 2, run `scripts/report.py --run <run>`. It writes FINDINGS.md and HANDOFF.md from the
    records alone; every claim without evidence lands under Unverified. Never edit either file
    by hand: fix the record and rerun. Show the user both paths. For an agent/task consumer,
