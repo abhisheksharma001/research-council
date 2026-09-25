@@ -18,6 +18,10 @@ node in, every item takes the Skip branch. Nothing downstream changes.
 The evidence battery gates nothing and never will: it cannot drop a record, change a strength
 or stop a fetch. Its answers are data you read beside your own.
 
+The claim battery is also the optional meaning check behind the quote rule in
+`references/evidence.md`: `claims.py` refuses a quote no cited excerpt contains, and the judge
+asks the looser question of whether a paraphrase says what its excerpts say.
+
 ## What it never does
 
 - A `yes` verifies nothing. A claim is verified by an evidence record, never by a probability

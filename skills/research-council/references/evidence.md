@@ -61,6 +61,13 @@ JSON
 | `test_ids` | ids of tests that would confirm it; may be empty; not checked until the library (S-10) exists |
 | `limitations` | what it does not cover; a string, may be empty |
 
+A statement that quotes text in double quotes (`"..."` or curly quotes) must find each quoted
+span in one of the excerpts it cites; case and line breaks do not matter. A span found in none
+is refused with `quote not in any cited excerpt: "..."` and nothing is written: fix the quote or
+cite the record that holds it. Paraphrase goes outside quotes. This is an exact-text check done
+in code; whether a paraphrase says what its excerpts say is the claim battery's question in
+`references/judge.md`, which only reports and never clears a claim.
+
 ## Listing
 ```bash
 python3 scripts/claims.py list --run AGI_Research/runs/<goal_id>

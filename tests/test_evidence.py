@@ -123,6 +123,28 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual([c["claim_id"] for c in claims.unverified(all_)], ["C-2"])
         self.assertEqual(claims.line(all_[0]), "C-1 observed [E-1] 37 of 4120 requests returned 500")
 
+    def test_claim_quoting_text_no_cited_excerpt_holds_is_refused(self):
+        evidence.add(self.run, ev(excerpt="The retry loop\n  RUNS twice per failed request."))
+        evidence.add(self.run, ev(excerpt="timeout is 30s"))
+        with self.assertRaises(ValueError) as caught:
+            claims.add(self.run, cl(statement='The log says "runs three times" and \u201ctimeout is 60s\u201d',
+                                    evidence_ids=["E-1", "E-2"]))
+        self.assertEqual(str(caught.exception).splitlines(),
+                         ['quote not in any cited excerpt: "runs three times"',
+                          'quote not in any cited excerpt: "timeout is 60s"'])
+        self.assertFalse((self.run / "claims.jsonl").exists())
+        with self.assertRaisesRegex(ValueError, "timeout is 30s"):  # in E-2, but only E-1 is cited
+            claims.add(self.run, cl(statement='the code says "timeout is 30s"', evidence_ids=["E-1"]))
+        c = claims.add(self.run, cl(statement='The code "retry loop runs twice" and '
+                                              '\u201cTimeout is 30s\u201d; it\'s "the retry loop"',
+                                    evidence_ids=["E-1", "E-2"]))
+        self.assertEqual(c["claim_id"], "C-1")
+
+    def test_quote_rule_skips_unverified_claims_and_plain_statements(self):
+        c = claims.add(self.run, cl(statement='someone said "nothing like this"', evidence_ids=[]))
+        self.assertEqual(claims.unverified(claims.read(self.run)), [c])
+        self.assertEqual(claims.quotes_missing('no quotes, it\'s plain', ["x"]), [])
+
     def test_claim_rejects_bad_type_duplicates_and_unknown_fields(self):
         evidence.add(self.run, ev())
         known = {"E-1"}
