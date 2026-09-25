@@ -92,6 +92,54 @@ class ReportTests(unittest.TestCase):
         self.assertIn("Beat: H1 The upstream repair-order API was failing", body)
         self.assertIn("H2       1208    1 open", body)
 
+    def unchallenge(self):
+        path = self.run / "journal.jsonl"
+        keep = [l for l in path.read_text(encoding="utf-8").splitlines() if '"disconfirm"' not in l]
+        path.write_text("\n".join(keep) + "\n", encoding="utf-8")
+
+    def test_unchallenged_top_hypothesis_is_leading_not_chosen(self):
+        self.unchallenge()
+        body = sections(report.handoff(self.run))["Chosen approach"]
+        self.assertNotIn("Chosen:", body)
+        self.assertIn("Leading: H2 The tool was switched off", body)
+        self.assertIn(report.FIXED["unchallenged"], body)
+        unknown = sections(report.findings(self.run))["What is still unknown"]
+        self.assertIn("H1 The upstream repair-order API was failing and the agent's tool calls errored. "
+                      "(never challenged)", unknown)
+        self.assertIn("H2 The tool was switched off", unknown)
+        self.assertNotIn("H3", unknown)  # refuted, not open
+        self.assertFalse(report.structured_handoff(self.run)["next_investigation"]["challenged"])
+
+    def test_contradicting_evidence_counts_as_a_challenge(self):
+        self.unchallenge()
+        evidence.add(self.run, {"source_type": "file", "source_uri": "config/assistant_history.json",
+                                "title": "config history", "locator": "line 3", "excerpt": "no change on 08-12",
+                                "access_scope": "private", "stance": "contradicts", "hypothesis_ids": ["H2"]})
+        body = sections(report.handoff(self.run))["Chosen approach"]
+        self.assertIn("Chosen: H2 The tool was switched off", body)
+        unknown = sections(report.findings(self.run))["What is still unknown"]
+        self.assertNotIn("H2 The tool", unknown)
+        self.assertIn("H1 The upstream", unknown)
+        handoff = report.structured_handoff(self.run)
+        self.assertTrue(handoff["next_investigation"]["challenged"])
+        self.assertEqual(handoff["evidence"][-1]["stance"], "contradicts")
+
+    def test_supporting_evidence_is_not_a_challenge(self):
+        self.unchallenge()
+        evidence.add(self.run, {"source_type": "file", "source_uri": "config/assistant_history.json",
+                                "title": "config history", "locator": "line 3", "excerpt": "tool disabled 04:00",
+                                "access_scope": "private", "stance": "supports", "hypothesis_ids": ["H2"]})
+        self.assertIn("Leading: H2", report.handoff(self.run))
+
+    def test_structured_handoff_refuses_a_hand_edited_stance(self):
+        path = self.run / "evidence.jsonl"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        first = json.loads(lines[0])
+        first["stance"] = "contradicts"  # no hypothesis_ids, written around evidence.py
+        path.write_text("\n".join([json.dumps(first)] + lines[1:]) + "\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "come together"):
+            report.structured_handoff(self.run)
+
     def hyps(self):
         return json.loads((self.run / "hypotheses.json").read_text(encoding="utf-8"))
 

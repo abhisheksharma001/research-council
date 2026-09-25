@@ -56,6 +56,16 @@ class EvidenceTests(unittest.TestCase):
         datetime.fromisoformat(rec["retrieved_at"])
         self.assertEqual(evidence.read(self.run), [rec])
 
+    def test_stance_and_hypothesis_ids_are_kept_together(self):
+        rec = evidence.add(self.run, ev(stance="contradicts", hypothesis_ids=["H1"]))
+        self.assertEqual((rec["stance"], rec["hypothesis_ids"]), ("contradicts", ["H1"]))
+        self.assertNotIn("stance", evidence.add(self.run, ev()))
+        for bad, msg in (({"stance": "contradicts"}, "come together"),
+                         ({"stance": "refutes", "hypothesis_ids": ["H1"]}, "stance"),
+                         ({"stance": "supports", "hypothesis_ids": []}, "hypothesis_ids")):
+            with self.assertRaisesRegex(ValueError, msg):
+                evidence.add(self.run, ev(**bad))
+
     def test_evidence_ids_increment_from_highest(self):
         evidence.add(self.run, ev())
         evidence.add(self.run, ev(title="second"))

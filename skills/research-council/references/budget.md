@@ -17,7 +17,7 @@ away — the spent minutes are still wall clock, because that is the cap the use
 | cap | meaning |
 |---|---|
 | `minutes` | wall-clock minutes since `created_at`, pauses included |
-| `max_actions` | journal lines of kind fetch, read, write, subagent, exec, judge (`note` does not count) |
+| `max_actions` | journal lines of kind fetch, read, write, subagent, exec, judge (`note` and `disconfirm` do not count) |
 | `max_subagents` | journal lines of kind `subagent` |
 | `usd_estimate_cap` | sum of `cost_usd`; `null` counts as 0 and is reported as `unmetered: N` |
 

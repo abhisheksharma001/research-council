@@ -2,13 +2,16 @@
 """Append one line to a run's journal.jsonl.
 
 Usage:
-  python3 scripts/journal.py add --run <run-dir> --kind <fetch|read|write|subagent|exec|judge|note> \
-      --cost_usd <float|null> --detail <text>
+  python3 scripts/journal.py add --run <run-dir> --kind <fetch|read|write|subagent|exec|judge|note|disconfirm> \
+      --cost_usd <float|null> --detail <text> [--hypothesis <id> ...]
 
 Every line is {"ts", "kind", "cost_usd", "detail"}. `cost_usd null` means the cost is
 unknown (unmetered); budget.py counts it as 0 and reports how many such lines exist.
 `judge` is one decision call made through scripts/judge.py and counts as an action like
-any other. `note` is commentary and does not count as an action. The run folder holds
+any other. `note` is commentary and does not count as an action. `disconfirm` records a
+search for evidence against the hypotheses named with --hypothesis (the line gains
+"hypothesis_ids"); it is how a search that found nothing against them is written down, and it
+does not count as an action either, since the search itself is its own fetch. The run folder holds
 goal.json (research run) or task.json (code-writer-council task).
 
 Exit 0 ok, 1 bad input.
@@ -20,8 +23,8 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-KINDS = ("fetch", "read", "write", "subagent", "exec", "judge", "note")
-ACTION_KINDS = tuple(k for k in KINDS if k != "note")
+KINDS = ("fetch", "read", "write", "subagent", "exec", "judge", "note", "disconfirm")
+ACTION_KINDS = tuple(k for k in KINDS if k not in ("note", "disconfirm"))
 FILENAME = "journal.jsonl"
 
 
@@ -48,7 +51,7 @@ def parse_cost(raw):
     return v
 
 
-def add(run, kind, cost_usd, detail):
+def add(run, kind, cost_usd, detail, hypothesis_ids=None):
     """Append one entry. Returns the entry dict. Raises ValueError."""
     run = Path(run)
     if kind not in KINDS:
@@ -57,10 +60,17 @@ def add(run, kind, cost_usd, detail):
         raise ValueError("invalid cost_usd (must be a finite nonnegative number or null)")
     if not isinstance(detail, str) or detail.strip() == "":
         raise ValueError("missing field: detail")
+    if kind == "disconfirm":
+        if not hypothesis_ids or not all(isinstance(i, str) and i.strip() for i in hypothesis_ids):
+            raise ValueError("disconfirm needs at least one --hypothesis id")
+    elif hypothesis_ids:
+        raise ValueError("--hypothesis is only for kind disconfirm")
     if not any((run / name).is_file() for name in ("goal.json", "task.json")):
         raise ValueError(f"no goal.json or task.json in {run}; run goal.py new or task.py new first")
     entry = {"ts": datetime.now(timezone.utc).isoformat(timespec="seconds"),
              "kind": kind, "cost_usd": cost_usd, "detail": detail}
+    if kind == "disconfirm":
+        entry["hypothesis_ids"] = list(hypothesis_ids)
     with (run / FILENAME).open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
     return entry
@@ -87,9 +97,10 @@ def main(argv):
     a.add_argument("--kind", required=True)
     a.add_argument("--cost_usd", required=True)
     a.add_argument("--detail", required=True)
+    a.add_argument("--hypothesis", action="append", dest="hypothesis_ids")
     args = p.parse_args(argv[1:])
     try:
-        entry = add(args.run, args.kind, parse_cost(args.cost_usd), args.detail)
+        entry = add(args.run, args.kind, parse_cost(args.cost_usd), args.detail, args.hypothesis_ids)
     except (ValueError, OSError) as e:
         print(str(e), file=sys.stderr)
         return 1

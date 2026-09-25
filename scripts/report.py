@@ -6,7 +6,8 @@ Usage:
 
 Reads goal.json (through goal.load, so a tampered goal is refused), claims.jsonl,
 evidence.jsonl, hypotheses.json (through rank.load, optional), spark.json (optional),
-objections.json (optional, saved from the Reflection role) and the spend line from budget.py. Every sentence in the output is either a fixed
+objections.json (optional, saved from the Reflection role), journal.jsonl (disconfirm lines)
+and the spend line from budget.py. Every sentence in the output is either a fixed
 heading or gloss from this file, or text copied from one of those records. Nothing
 is summarised, inferred, or reworded.
 
@@ -17,6 +18,11 @@ HANDOFF.md sections: Goal; Chosen approach (with the Elo table); Acceptance;
 Files likely touched; Must not.
 
 A claim with no evidence ids appears only under "Unverified" (CLAUDE.md invariant 2).
+The top-rated open hypothesis is written "Chosen" only once it has been challenged: an
+evidence record with stance contradicts names it, or a journal disconfirm line does (S-75).
+Until then HANDOFF.md names it "Leading" with a fixed line, FINDINGS.md lists every
+unchallenged open hypothesis under "What is still unknown", and the JSON handoff sets
+next_investigation.challenged to false.
 A claim superseded by a later claim (claims.py supersede) appears only under "Superseded".
 A claim named in `claim_ids` of an objection with `blocking: true` appears only under
 "Disputed" (S-17, bug 5); a missing objections.json is said in one fixed line. An objections.json
@@ -36,6 +42,7 @@ import budget  # noqa: E402
 import claims  # noqa: E402
 import evidence  # noqa: E402
 import goal  # noqa: E402
+import journal  # noqa: E402
 import rank  # noqa: E402
 import spark  # noqa: E402
 
@@ -69,6 +76,9 @@ FIXED = {
     "elo_gloss": "Elo is a rating moved only by head-to-head comparisons; it orders what to "
                  "investigate, it does not verify anything.",
     "beat_none": "Beat: no pair judged against it.",
+    "unchallenged": "Not chosen: nothing recorded challenges it. Record evidence with stance "
+                    "contradicts, or a journal disconfirm line, naming it first.",
+    "never_challenged": "(never challenged)",
     "ears_intro": "One sentence per success criterion, in the form WHEN ... THEN ... SHALL.",
     "table_header": rank.table({"hypotheses": []}),
 }
@@ -174,6 +184,18 @@ def beaten(run, chosen, hyps):
     return ranked[0] if ranked else None
 
 
+def challenged(run, ev):
+    """Hypothesis ids named by a contradicts evidence record or a journal disconfirm line."""
+    ids = set()
+    for r in ev.values():
+        if r.get("stance") == "contradicts":
+            ids.update(r["hypothesis_ids"])
+    for e in journal.read(run):
+        if e["kind"] == "disconfirm":
+            ids.update(e["hypothesis_ids"])
+    return ids
+
+
 def _evidence_ref(ev, eid):
     r = ev[eid]
     return f"[{eid}] {r['title']}, {r['locator']}"
@@ -223,6 +245,9 @@ def findings(run):
     out += _bullets(tried) + [""]
     out += ["## What is still unknown", ""]
     unknown = list(g["unknowns"])
+    tested = challenged(run, ev)
+    unknown += [f"{h['id']} {h['statement']} {FIXED['never_challenged']}" for h in hyps
+                if h.get("status") == rank.ELIGIBLE_STATUS and h["id"] not in tested]
     unknown += [f"{s['id']} {s['observation']} (spark in {s['state']})"
                 for s in sparks if s["state"] not in (spark.NOISE, spark.STATES[-1])]
     out += _bullets(unknown) + [""]
@@ -246,8 +271,11 @@ def handoff(run):
     if ranked:
         chosen = ranked[0]
         beat = beaten(run, chosen["id"], hyps)
-        out += [f"Chosen: {chosen['id']} {chosen['statement']}", "",
-                f"Beat: {beat['id']} {beat['statement']}" if beat else FIXED["beat_none"], ""]
+        if chosen["id"] in challenged(run, ev):
+            out += [f"Chosen: {chosen['id']} {chosen['statement']}", ""]
+        else:
+            out += [f"Leading: {chosen['id']} {chosen['statement']}", "", FIXED["unchallenged"], ""]
+        out += [f"Beat: {beat['id']} {beat['statement']}" if beat else FIXED["beat_none"], ""]
     else:
         out += [NONE, ""]
     if hyps:
@@ -272,7 +300,8 @@ def structured_handoff(run):
     if len(claim_ids) != len(set(claim_ids)):
         raise ValueError("duplicate claim_id")
     for record in ev.values():
-        errors = evidence.validate({key: record.get(key) for key in evidence.USER_FIELDS})
+        errors = evidence.validate({key: record.get(key) for key in evidence.USER_FIELDS} |
+                                   {key: record[key] for key in evidence.OPTIONAL_FIELDS if key in record})
         if errors:
             raise ValueError("; ".join(errors))
         if not claims._nonempty_str(record["evidence_id"]) or not claims._nonempty_str(record.get("retrieved_at")):
@@ -308,7 +337,8 @@ def structured_handoff(run):
     next_investigation = None
     if ranked:
         next_investigation = {"hypothesis_id": ranked[0]["id"], "statement": ranked[0]["statement"],
-                              "selection_basis": "elo_scheduling_only", "verified_solution": False}
+                              "selection_basis": "elo_scheduling_only", "verified_solution": False,
+                              "challenged": ranked[0]["id"] in challenged(run, ev)}
     review_status = "recorded" if note is None else "missing" if note == FIXED["no_objections_file"] else "invalid"
     return {
         "schema_version": 1,
@@ -321,7 +351,8 @@ def structured_handoff(run):
                    "objections": review, "blocking_objections": blocked},
         "claims": exported_claims,
         "findings": [c["claim_id"] for c in groups["evidence_backed"]],
-        "evidence": [{key: record[key] for key in ("evidence_id", *evidence.USER_FIELDS, "retrieved_at", "sha256")}
+        "evidence": [{key: record[key] for key in ("evidence_id", *evidence.USER_FIELDS, *evidence.OPTIONAL_FIELDS,
+                                                   "retrieved_at", "sha256") if key in record}
                      for record in ev.values()],
         "next_investigation": next_investigation,
         "unknowns": g["unknowns"],

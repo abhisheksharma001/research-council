@@ -169,6 +169,17 @@ class BudgetTests(unittest.TestCase):
         self.log("note", None, n=5)
         self.assertEqual(budget.status(self.run)["spent"]["max_actions"], 0)
 
+    def test_disconfirm_names_hypotheses_and_is_not_an_action(self):
+        entry = journal.add(self.run, "disconfirm", None, "searched for errors", ["H1"])
+        self.assertEqual(entry["hypothesis_ids"], ["H1"])
+        self.assertEqual(budget.status(self.run)["spent"]["max_actions"], 0)
+
+    def test_disconfirm_without_hypothesis_rejected(self):
+        with self.assertRaisesRegex(ValueError, "--hypothesis"):
+            journal.add(self.run, "disconfirm", None, "searched for errors")
+        with self.assertRaisesRegex(ValueError, "only for kind disconfirm"):
+            journal.add(self.run, "note", None, "a note", ["H1"])
+
     def test_empty_journal_is_zero_not_error(self):
         st = budget.status(self.run)
         self.assertEqual(st["spent"]["max_actions"], 0)
