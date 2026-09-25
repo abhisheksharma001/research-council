@@ -63,6 +63,7 @@ class CouncilRuntimeTests(unittest.TestCase):
     def meta(self):
         return {"content": "# Meta-review\n\n## Recurring weaknesses\nNone recorded.\n\n"
                 "## Hypothesis status\nNo hypothesis refuted.\n\n## Next investigation\nI-1\n\n"
+                "## Single-agent answer\nThe tool was switched off in configuration.\nsame\n\n"
                 "## Recommendation\nstop — no additional discriminating evidence.\n"}
 
     def test_generation_round_trip_preserves_goal_and_reserves_once(self):
@@ -381,6 +382,8 @@ class CouncilRuntimeTests(unittest.TestCase):
         reply = {"content": "# Meta-review\r\n\r\n##  **Recurring weaknesses**  \r\nNone recorded.\r\n\r\n"
                             "## _Hypothesis status_\r\nNo hypothesis refuted.\r\n\r\n"
                             "  ## Next investigation \r\nI-1\r\n\r\n"
+                            "## Single-agent answer\r\nThe upstream API failed.\r\n"
+                            "Differs: the council ranks the configuration change first.\r\n\r\n"
                             "## **Recommendation**\r\nContinue — one discriminating read remains.\r\n"}
         council.accept(self.run, packet["request_id"], reply)
         self.assertEqual((self.run / "meta.md").read_bytes(), reply["content"].encode("utf-8"))
@@ -393,6 +396,24 @@ class CouncilRuntimeTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             council.accept(self.run, packet["request_id"], reply)
         self.assertFalse((self.run / "meta.md").exists())
+
+    def test_the_single_agent_answer_needs_an_answer_and_a_same_or_differs_line(self):
+        self.generate()
+        packet = council.prepare(self.run, "meta-review")
+        good = self.meta()["content"]
+        section = "## Single-agent answer\nThe tool was switched off in configuration.\nsame\n\n"
+        for body, message in (("", "one Single-agent answer section"),
+                              ("## Single-agent answer\nsame\n\n", "the answer itself"),
+                              ("## Single-agent answer\nThe tool was off.\nprobably alike\n\n",
+                               "beginning same or differs"),
+                              ("## Single-agent answer\nThe tool was off.\n\n  ## Recommendation\n"
+                               "same\n", "beginning same or differs")):  # an indented heading ends the section
+            reply = {"content": good.replace(section, body)}
+            with self.assertRaisesRegex(ValueError, message):
+                council.accept(self.run, packet["request_id"], reply)
+        self.assertFalse((self.run / "meta.md").exists())
+        agent = (ROOT / "agents" / "meta-review.md").read_text(encoding="utf-8")
+        self.assertIn("## Single-agent answer", agent)
 
     def test_a_duplicated_section_is_still_refused(self):
         self.generate()

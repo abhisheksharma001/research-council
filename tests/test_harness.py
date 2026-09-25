@@ -8,7 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "harness.py"
-ANSWERS = {"q1": True, "q2": True, "q3": True, "q4": True, "q5": False}
+ANSWERS = {"q1": True, "q2": True, "q3": True, "q4": True, "q5": False, "q6": False}
 
 
 class HarnessTests(unittest.TestCase):

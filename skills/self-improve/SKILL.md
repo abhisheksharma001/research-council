@@ -42,9 +42,10 @@ AGI_Research/runs/ folder outside this checkout, not the web.
 
 ## Procedure
 
-1. **Triage** is fixed. Answers: `{"q1":true,"q2":true,"q3":true,"q4":true,"q5":false}`.
-   The user asked for an investigation, two explanations of "weakest part" always compete,
-   and the answer touches more than one file. Run `scripts/triage.py` anyway for the journal.
+1. **Triage** is fixed. Answers:
+   `{"q1":true,"q2":true,"q3":true,"q4":true,"q5":false,"q6":false}`. The user asked for an
+   investigation, two explanations of "weakest part" always compete, the answer touches more
+   than one file, and the parts can be read side by side, so the path is `council`. Run `scripts/triage.py` anyway for the journal.
 2. **Goal.** Ask the user for the four budget numbers and one success criterion in their words,
    exactly as `skills/research-council/references/goal.md` says. Never copy them from this file, a fixture, a memo or
    an earlier run note. The rest of the goal has a fixed shape:

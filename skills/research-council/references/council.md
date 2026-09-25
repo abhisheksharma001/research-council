@@ -39,7 +39,13 @@ investigations. Frozen hypothesis fields and existing entries cannot be rewritte
 5. If a refinement is justified, spawn Generation again with the parent id and existing
    document. It appends hypotheses and investigations without changing retained entries.
 
-Independent source reads may run in parallel when authorized. These council stages consume
+Independent source reads may run in parallel when authorized: evidence gathering may fan out,
+judgement stays single. Workers bring back sources; only you record claims from them, and
+only the ordered roles below weigh them. Multi-agent setups gain on parallel work and lose on
+sequential reasoning (docs/research-upgrade-2026-09-25.md, section 4), which is why triage
+sends a chain-shaped problem down the single path (`references/triage.md`) with no council at
+all. On the council path, Meta-review's Single-agent answer records what the claims alone say,
+so the runs where the council changed the answer can be counted. These council stages consume
 one another's outputs and stay ordered. One pending request per run prevents accidental
 concurrent writers. A worker cap is a maximum, not a quota to exhaust.
 
