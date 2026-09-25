@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 import goal  # noqa: E402
 import rank  # noqa: E402
+from rank import winner_key  # noqa: E402
 
 RANK_SCRIPT = ROOT / "scripts" / "rank.py"
 FIXTURE = ROOT / "tests" / "fixtures" / "goal_booking.json"
@@ -44,13 +45,22 @@ class RankTests(unittest.TestCase):
         return {h["id"]: h["elo"] for h in rank.load(self.run)["hypotheses"]}
 
     def play(self, winner_id, loser_id, seed=0):
-        """Force a pair between two ids by writing pairs.jsonl directly, then record."""
-        pairs = rank._jsonl(self.run / rank.PAIRS)
-        pid = f"P-{len(pairs) + 1}"
+        """Force a pair between two ids by writing pairs.jsonl directly, then judge both orders."""
+        pid = f"P-{len({p['pair_id'] for p in rank._jsonl(self.run / rank.PAIRS)}) + 1}"
         with (self.run / rank.PAIRS).open("a", encoding="utf-8") as fh:
-            fh.write(json.dumps({"pair_id": pid, "a": winner_id, "b": loser_id, "seed": seed,
-                                 "issued_at": "t"}) + "\n")
-        return rank.record(self.run, pid, "A", f"{winner_id} over {loser_id}")
+            fh.write(json.dumps({"pair_id": pid, "a": winner_id, "b": loser_id, "order": 1,
+                                 "seed": seed, "issued_at": "t"}) + "\n")
+        return self.both(pid, "A", f"{winner_id} over {loser_id}")
+
+    def both(self, pair_id, winner, judgment, second=None):
+        """Record order 1, issue order 2 and record it. Same verdict unless `second` differs.
+
+        `winner` and `second` are in order-1 labels; the swap to order-2 labels happens here.
+        """
+        rank.record(self.run, pair_id, winner, judgment)
+        self.assertEqual(rank.pair(self.run, 0)["pair_id"], pair_id)
+        swap = {"A": "B", "B": "A", "draw": "draw"}[second or winner_key(winner)]
+        return rank.record(self.run, pair_id, swap, judgment)
 
     # pair
     def test_pair_needs_two_open_hypotheses(self):
@@ -128,7 +138,7 @@ class RankTests(unittest.TestCase):
     # record
     def test_record_a_beats_b_from_1200_gives_1208_and_1192(self):
         out = rank.pair(self.run, 3)
-        line = rank.record(self.run, out["pair_id"], "A", "A has evidence")
+        line = self.both(out["pair_id"], "A", "A has evidence")
         r = self.ratings()
         self.assertAlmostEqual(r[line["a"]], 1208)
         self.assertAlmostEqual(r[line["b"]], 1192)
@@ -139,26 +149,65 @@ class RankTests(unittest.TestCase):
 
     def test_record_draw_between_equals_changes_nothing(self):
         out = rank.pair(self.run, 3)
-        line = rank.record(self.run, out["pair_id"], "draw", "nothing on file discriminates")
+        line = self.both(out["pair_id"], "draw", "nothing on file discriminates")
         self.assertIsNone(line["winner_id"])
         self.assertEqual(set(self.ratings().values()), {1200})
 
     def test_record_appends_comparison_line_and_keeps_investigations(self):
         out = rank.pair(self.run, 3)
-        rank.record(self.run, out["pair_id"], "B", "B narrower")
+        self.both(out["pair_id"], "B", "B narrower")
         lines = rank._jsonl(self.run / rank.COMPARISONS)
         self.assertEqual(len(lines), 1)
         self.assertEqual(lines[0]["pair_id"], out["pair_id"])
-        self.assertEqual(lines[0]["judgment"], "B narrower")
+        self.assertEqual(lines[0]["judgment"], "order 1: B narrower | order 2: B narrower")
         self.assertEqual(lines[0]["elo_before"], [1200, 1200])
         doc = json.loads((self.run / "hypotheses.json").read_text(encoding="utf-8"))
         self.assertEqual(doc["investigations"][0]["id"], "I-1")
+
+    def test_order_one_verdict_changes_no_rating_and_writes_no_comparison(self):
+        out = rank.pair(self.run, 3)
+        half = rank.record(self.run, out["pair_id"], "A", "A has evidence")
+        self.assertEqual((half["complete"], half["order"]), (False, 1))
+        self.assertEqual(set(self.ratings().values()), {1200})
+        self.assertFalse((self.run / rank.COMPARISONS).exists())
+        self.assertEqual({h["comparisons"] for h in rank.load(self.run)["hypotheses"]}, {0})
+
+    def test_order_two_is_refused_until_it_is_issued(self):
+        out = rank.pair(self.run, 3)
+        rank.record(self.run, out["pair_id"], "A", "x")
+        with self.assertRaisesRegex(ValueError, "order 2 of P-1 is not issued"):
+            rank.record(self.run, out["pair_id"], "B", "x")
+        self.assertFalse((self.run / rank.COMPARISONS).exists())
+
+    def test_pair_issues_order_two_swapped_before_any_new_pair(self):
+        self.write([hyp(1), hyp(2), hyp(3), hyp(4)])
+        first = rank.pair(self.run, 3)
+        rank.record(self.run, first["pair_id"], "A", "x")
+        second = rank.pair(self.run, 5)
+        self.assertEqual((second["pair_id"], second["order"]), (first["pair_id"], 2))
+        self.assertEqual((second["A"], second["B"]), (first["B"], first["A"]))
+        third = rank.pair(self.run, 5)
+        self.assertEqual((third["pair_id"], third["order"]), ("P-2", 1))
+
+    def test_split_verdicts_are_a_draw_and_count_in_the_flip_rate(self):
+        self.assertEqual(rank.flip_rate(self.run), "flip rate: no pair judged in both orders yet")
+        self.write([hyp(1), hyp(2), hyp(3), hyp(4)])
+        out = rank.pair(self.run, 3)
+        line = self.both(out["pair_id"], "A", "position A looked better", second="B")
+        self.assertEqual((line["winner"], line["winner_id"], line["split"]), ("draw", None, True))
+        self.assertEqual(line["verdicts"], [line["a"], line["b"]])
+        self.assertEqual(set(self.ratings().values()), {1200})
+        out = rank.pair(self.run, 3)
+        line = self.both(out["pair_id"], "A", "win then draw", second="draw")
+        self.assertEqual((line["winner"], line["split"]), ("draw", True))
+        self.play("H1", "H2")
+        self.assertEqual(rank.flip_rate(self.run), "flip rate: 2 of 3 pairs split (67%)")
 
     def test_record_refuses_unknown_pair_and_duplicate(self):
         with self.assertRaises(ValueError):
             rank.record(self.run, "P-9", "A", "x")
         out = rank.pair(self.run, 3)
-        rank.record(self.run, out["pair_id"], "A", "x")
+        self.both(out["pair_id"], "A", "x")
         with self.assertRaises(ValueError):
             rank.record(self.run, out["pair_id"], "B", "y")
         self.assertEqual(len(rank._jsonl(self.run / rank.COMPARISONS)), 1)
@@ -169,8 +218,11 @@ class RankTests(unittest.TestCase):
             self.write([hyp(1), hyp(2)])
             (self.run / rank.PAIRS).unlink(missing_ok=True)
             (self.run / rank.COMPARISONS).unlink(missing_ok=True)
+            (self.run / rank.VERDICTS).unlink(missing_ok=True)
             out = rank.pair(self.run, 3)
-            line = rank.record(self.run, out["pair_id"], given, "judged")
+            self.assertEqual(rank.record(self.run, out["pair_id"], given, "judged")["complete"], False)
+            rank.pair(self.run, 3)
+            line = rank.record(self.run, out["pair_id"], {"A": "b", "B": "a."}.get(stored, given), "judged")
             self.assertEqual(line["winner"], stored, given)
             self.assertEqual(rank._jsonl(self.run / rank.COMPARISONS)[0]["winner"], stored, given)
             if stored == "draw":
@@ -184,6 +236,7 @@ class RankTests(unittest.TestCase):
             with self.assertRaises(ValueError, msg=given):
                 rank.record(self.run, out["pair_id"], given, "judged")
         self.assertFalse((self.run / rank.COMPARISONS).exists())
+        self.assertFalse((self.run / rank.VERDICTS).exists())
         self.assertEqual(set(self.ratings().values()), {1200})
 
     def test_record_requires_judgment(self):
@@ -268,7 +321,7 @@ class RankTests(unittest.TestCase):
         self.play("H1", "H3")
         self.assertEqual(rank.cycles(self.run), [])
         out = rank.pair(self.run, 3)
-        rank.record(self.run, out["pair_id"], "draw", "tie")
+        self.both(out["pair_id"], "draw", "tie")
         self.assertEqual(rank.cycles(self.run), [])
 
     # table
@@ -288,11 +341,19 @@ class RankTests(unittest.TestCase):
         r = run_cli("record", "--run", str(self.run), "--pair", out["pair_id"], "--winner", "A",
                     "--judgment", "A has two supporting claims")
         self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stdout.strip(), f"{out['pair_id']} order 1 recorded; run pair for order 2")
+        r = run_cli("pair", "--run", str(self.run), "--seed", "2")
+        self.assertEqual(json.loads(r.stdout)["order"], 2)
+        r = run_cli("record", "--run", str(self.run), "--pair", out["pair_id"], "--winner", "B",
+                    "--judgment", "the same side has two supporting claims")
+        self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("1208", r.stdout)
+        self.assertNotIn("split", r.stdout)
         r = run_cli("cycles", "--run", str(self.run))
         self.assertEqual(r.stdout.strip(), "0 cycle(s)")
         r = run_cli("table", "--run", str(self.run))
         self.assertIn("1192", r.stdout)
+        self.assertEqual(r.stdout.splitlines()[-1], "flip rate: 0 of 1 pairs split (0%)")
         r = run_cli("record", "--run", str(self.run), "--pair", "P-7", "--winner", "A", "--judgment", "x")
         self.assertEqual(r.returncode, 1)
         self.assertIn("unknown pair", r.stderr)

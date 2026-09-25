@@ -8,17 +8,25 @@ Usage:
   python3 scripts/rank.py table  --run <run-dir>
   python3 scripts/rank.py stop   --run <run-dir> --hyp <H-n> --reason <text>
 
-pair    picks two open hypotheses (fewest comparisons first, then highest rating;
-        the opponent prefers a pair that has not been drawn, then shared opponents, then
-        rating; a pair already issued and not yet recorded counts as drawn and is refused),
-        writes the pair to pairs.jsonl and prints a blinded JSON object: sides A and B in
-        seed-shuffled order carrying only statement, predicted_result, needed_evidence and
-        stop_condition. No id, rating, parent or status reaches the Ranking agent.
-record  looks the pair up, appends one line to comparisons.jsonl and updates `elo` and
-        `comparisons` on both hypotheses (start 1200, K=16, win 1 / draw 0.5 / loss 0).
-        The winner is read case-insensitively and stored as A, B or draw.
+pair    Every pair is judged twice, once in each order, by separate spawns. When a pair
+        has its order-1 verdict and order 2 is not issued, pair issues order 2: the same
+        pair with A and B swapped. Otherwise it picks two open hypotheses (fewest
+        comparisons first, then highest rating; the opponent prefers a pair that has not
+        been drawn, then shared opponents, then rating; a pair already issued and not yet
+        recorded counts as drawn and is refused) in seed-shuffled order as order 1. The
+        pair is written to pairs.jsonl and printed as a blinded JSON object: pair_id,
+        order, and sides A and B carrying only statement, predicted_result,
+        needed_evidence and stop_condition. No id, rating, parent or status reaches the
+        Ranking agent.
+record  looks the pair up. The order-1 verdict goes to verdicts.jsonl and changes no
+        rating. The order-2 verdict (refused until order 2 is issued) completes the pair:
+        both verdicts agree -> that result; they disagree -> draw with `split: true`.
+        One line goes to comparisons.jsonl and `elo` and `comparisons` are updated on
+        both hypotheses (start 1200, K=16, win 1 / draw 0.5 / loss 0). The winner is read
+        case-insensitively and stored as A, B or draw, in order-1 labels.
 cycles  prints every non-transitive triple X > Y > Z > X among recorded wins.
-table   prints ratings, highest first, with comparison counts and status.
+table   prints ratings, highest first, with comparison counts and status, then the flip
+        rate: how many pairs judged in both orders came back split.
 stop    sets one open hypothesis to status `stopped` with `stopped_reason` (the Supervisor
         runs it for each id Meta-review names; no council role may). Ratings untouched;
         `pair` never draws a stopped hypothesis.
@@ -41,6 +49,7 @@ import evidence  # noqa: E402  (next_id only)
 
 HYPOTHESES = "hypotheses.json"
 PAIRS = "pairs.jsonl"
+VERDICTS = "verdicts.jsonl"
 COMPARISONS = "comparisons.jsonl"
 START = 1200.0
 K = 16
@@ -111,25 +120,42 @@ def choose(doc, opponents):
     return first, second
 
 
+def _blind(h):
+    return {f: h.get(f) for f in BLIND_FIELDS}
+
+
 def pair(run, seed):
-    """Choose, shuffle with seed, persist to pairs.jsonl, return the blinded object."""
+    """Issue order 2 of a half-judged pair, else choose and shuffle a new pair as order 1.
+
+    Persists to pairs.jsonl and returns the blinded object.
+    """
     run = Path(run)
     doc = load(run)
+    issued = _jsonl(run / PAIRS)
+    second = {p["pair_id"] for p in issued if p.get("order") == 2}
+    for v in _jsonl(run / VERDICTS):
+        if v["pair_id"] not in second:
+            first = next(p for p in issued if p["pair_id"] == v["pair_id"])
+            rec = {"pair_id": first["pair_id"], "a": first["a"], "b": first["b"], "order": 2,
+                   "seed": seed, "issued_at": datetime.now(timezone.utc).isoformat()}
+            with (run / PAIRS).open("a", encoding="utf-8") as fh:
+                fh.write(json.dumps(rec) + "\n")
+            by_id = _by_id(doc)
+            return {"pair_id": rec["pair_id"], "order": 2,
+                    "A": _blind(by_id[rec["b"]]), "B": _blind(by_id[rec["a"]])}
     first, second = choose(doc, _opponents(run))
-    issued = _outstanding(run).get(frozenset((first["id"], second["id"])))
-    if issued:
-        raise ValueError(f"pair {issued} is already issued for {first['id']} vs {second['id']} "
+    pending = _outstanding(run).get(frozenset((first["id"], second["id"])))
+    if pending:
+        raise ValueError(f"pair {pending} is already issued for {first['id']} vs {second['id']} "
                          f"and not recorded; record it or judge it first")
     sides = [first, second]
     random.Random(seed).shuffle(sides)
-    pairs = _jsonl(run / PAIRS)
-    rec = {"pair_id": evidence.next_id([p["pair_id"] for p in pairs], "P-"),
-           "a": sides[0]["id"], "b": sides[1]["id"], "seed": seed,
+    rec = {"pair_id": evidence.next_id([p["pair_id"] for p in issued], "P-"),
+           "a": sides[0]["id"], "b": sides[1]["id"], "order": 1, "seed": seed,
            "issued_at": datetime.now(timezone.utc).isoformat()}
     with (run / PAIRS).open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(rec) + "\n")
-    blind = lambda h: {f: h.get(f) for f in BLIND_FIELDS}  # noqa: E731
-    return {"pair_id": rec["pair_id"], "A": blind(sides[0]), "B": blind(sides[1])}
+    return {"pair_id": rec["pair_id"], "order": 1, "A": _blind(sides[0]), "B": _blind(sides[1])}
 
 
 def elo_update(ra, rb, sa, sb):
@@ -152,19 +178,36 @@ def winner_key(value):
 
 
 def record(run, pair_id, winner, judgment):
-    """Append the result and update both ratings. Returns the comparison line. Raises ValueError."""
+    """Record one order's verdict. Order 1 is held in verdicts.jsonl and returned with
+    `complete: False`; order 2 completes the pair, updates both ratings and returns the
+    comparison line. Raises ValueError."""
     run = Path(run)
     winner = winner_key(winner)
     if not isinstance(judgment, str) or not judgment.strip():
         raise ValueError("judgment must be a non-empty string")
-    issued = {p["pair_id"]: p for p in _jsonl(run / PAIRS)}
-    if pair_id not in issued:
+    lines = [p for p in _jsonl(run / PAIRS) if p["pair_id"] == pair_id]
+    if not lines:
         raise ValueError(f"unknown pair: {pair_id}")
     if any(c["pair_id"] == pair_id for c in _jsonl(run / COMPARISONS)):
         raise ValueError(f"pair already recorded: {pair_id}")
+    first = next((v for v in _jsonl(run / VERDICTS) if v["pair_id"] == pair_id), None)
+    a_id, b_id = lines[0]["a"], lines[0]["b"]
+    now = datetime.now(timezone.utc).isoformat()
+    if first is None:
+        verdict = {"pair_id": pair_id, "order": 1,
+                   "winner_id": {"A": a_id, "B": b_id, "draw": None}[winner],
+                   "judgment": judgment, "ts": now}
+        with (run / VERDICTS).open("a", encoding="utf-8") as fh:
+            fh.write(json.dumps(verdict, ensure_ascii=False) + "\n")
+        return {**verdict, "complete": False}
+    if not any(p.get("order") == 2 for p in lines):
+        raise ValueError(f"order 2 of {pair_id} is not issued; run pair to get it judged in the swapped order")
+    second_id = {"A": b_id, "B": a_id, "draw": None}[winner]
+    split = second_id != first["winner_id"]
+    winner = "draw" if split or second_id is None else ("A" if second_id == a_id else "B")
     doc = load(run)
     by_id = _by_id(doc)
-    a, b = by_id[issued[pair_id]["a"]], by_id[issued[pair_id]["b"]]
+    a, b = by_id[a_id], by_id[b_id]
     before = (a["elo"], b["elo"])
     sa, sb = SCORE[winner]
     a["elo"], b["elo"] = elo_update(a["elo"], b["elo"], sa, sb)
@@ -172,8 +215,9 @@ def record(run, pair_id, winner, judgment):
     b["comparisons"] += 1
     line = {"pair_id": pair_id, "a": a["id"], "b": b["id"], "winner": winner,
             "winner_id": {"A": a["id"], "B": b["id"], "draw": None}[winner],
-            "judgment": judgment, "elo_before": list(before), "elo_after": [a["elo"], b["elo"]],
-            "ts": datetime.now(timezone.utc).isoformat()}
+            "split": split, "verdicts": [first["winner_id"], second_id],
+            "judgment": f"order 1: {first['judgment']} | order 2: {judgment}",
+            "elo_before": list(before), "elo_after": [a["elo"], b["elo"]], "ts": now}
     save(run, doc)
     with (run / COMPARISONS).open("a", encoding="utf-8") as fh:
         fh.write(json.dumps(line, ensure_ascii=False) + "\n")
@@ -226,6 +270,15 @@ def table(doc):
     return "\n".join(out)
 
 
+def flip_rate(run):
+    """One line: how many pairs judged in both orders came back split."""
+    both = [c for c in _jsonl(Path(run) / COMPARISONS) if "split" in c]
+    if not both:
+        return "flip rate: no pair judged in both orders yet"
+    n = sum(c["split"] for c in both)
+    return f"flip rate: {n} of {len(both)} pairs split ({round(100 * n / len(both))}%)"
+
+
 def main(argv):
     p = argparse.ArgumentParser(prog="rank.py")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -249,8 +302,12 @@ def main(argv):
             print(json.dumps(pair(args.run, args.seed), ensure_ascii=False))
         elif args.cmd == "record":
             line = record(args.run, args.pair, args.winner, args.judgment)
-            ra, rb = line["elo_after"]
-            print(f"{line['pair_id']} {line['winner']}: {line['a']} {round(ra)}, {line['b']} {round(rb)}")
+            if not line.get("complete", True):
+                print(f"{line['pair_id']} order 1 recorded; run pair for order 2")
+            else:
+                ra, rb = line["elo_after"]
+                print(f"{line['pair_id']} {line['winner']}{' (split)' if line['split'] else ''}: "
+                      f"{line['a']} {round(ra)}, {line['b']} {round(rb)}")
         elif args.cmd == "stop":
             h = stop(args.run, args.hyp, args.reason)
             print(f"{h['id']} {h['status']}: {h['stopped_reason']}")
@@ -261,6 +318,7 @@ def main(argv):
             print(f"{len(found)} cycle(s)")
         else:
             print(table(load(args.run)))
+            print(flip_rate(args.run))
     except (ValueError, OSError, json.JSONDecodeError, KeyError) as e:
         print(str(e), file=sys.stderr)
         return 1

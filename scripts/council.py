@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 PENDING = "council.pending.json"
 MAX_REPLY = 131072
 INPUTS = ("goal.json", "claims.jsonl", "evidence.jsonl", "hypotheses.json", "objections.json",
-          "pairs.jsonl", "comparisons.jsonl", "meta.md", "spark.json")
+          "pairs.jsonl", "verdicts.jsonl", "comparisons.jsonl", "meta.md", "spark.json")
 OUTPUTS = {"generation": "hypotheses.json", "reflection": "objections.json",
            "ranking": "comparisons.jsonl", "meta-review": "meta.md"}
 H_FIELDS = goal.HYPOTHESIS_KEYS + ("needed_evidence", "stop_condition", "parent_id", "status")
@@ -316,7 +316,8 @@ def accept(run, request_id, reply):
         _keys(reply, ("pair_id", "winner", "judgment"))
         if reply["pair_id"] != state["pair_id"]:
             raise ValueError("reply names a different pair")
-        rank.record(run, reply["pair_id"], reply["winner"], reply["judgment"])
+        if not rank.record(run, reply["pair_id"], reply["winner"], reply["judgment"]).get("complete", True):
+            output = run / rank.VERDICTS
         result = None
     if result is not None:
         _write_output(output, result)

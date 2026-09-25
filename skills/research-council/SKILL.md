@@ -128,12 +128,14 @@ Steps S-3 to S-10 in `docs/spec-v1.md` added one numbered step each; S-11 retrie
    A violation stops work: preserve the files and ask before any deletion or restoration.
    A folder hash is a detector, not a sandbox. No role gets Bash, the library, or the promote script.
 6. **Ranking.** Read `references/rank.md`. For return-only mode, prepare Ranking with an
-   explicit `--seed <n>`; accept records its blinded winner exactly once. Do not also create
-   or record that pair manually. For native mode, `scripts/rank.py pair --run <run> --seed <n>`
-   prints one blinded pair; give exactly that JSON to the worker and use
-   `scripts/rank.py record --run <run> --pair <id> --winner A|B|draw --judgment "..."`.
-   `rank.py table` shows the order to investigate next; `rank.py cycles` lists contradictions.
-   A rating never verifies a claim and never enters FINDINGS.md.
+   explicit `--seed <n>`; accept records its blinded verdict exactly once. The next Ranking
+   prepare issues the same pair swapped for a fresh worker; the pair counts only once both
+   verdicts are in, and a split is a draw. Do not also create or record that pair manually. For
+   native mode, `scripts/rank.py pair --run <run> --seed <n>` prints one blinded pair; give
+   exactly that JSON to the worker and use `scripts/rank.py record --run <run> --pair <id>
+   --winner A|B|draw --judgment "..."`. Run pair and record twice per pair: the second pair
+   call is the swapped order. `rank.py table` shows the order to investigate next; `rank.py
+   cycles` lists contradictions. A rating never verifies a claim and never enters FINDINGS.md.
 7. **Curiosity.** Read `references/curiosity.md`. Open a spark with `scripts/spark.py new`
    only when an observation contradicts a hypothesis's `predicted_result` or two hypotheses
    tie within 16 Elo points. Walk it through `strategies/fire.md` with `spark.py trial` and

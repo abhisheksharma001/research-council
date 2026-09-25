@@ -98,13 +98,41 @@ class CouncilRuntimeTests(unittest.TestCase):
         for side in ("A", "B"):
             self.assertEqual(set(pair[side]), set(rank.BLIND_FIELDS))
             self.assertNotIn("id", pair[side])
+        self.assertEqual(pair["order"], 1)
         reply = {"pair_id": pair["pair_id"], "winner": "A", "judgment": "Fixture comparison, not verification."}
-        council.accept(self.run, packet["request_id"], reply)
+        self.assertEqual(council.accept(self.run, packet["request_id"], reply), self.run / rank.VERDICTS)
         before = (self.run / rank.HYPOTHESES).read_bytes()
         with self.assertRaises(ValueError):
             council.accept(self.run, packet["request_id"], reply)
         self.assertEqual(before, (self.run / rank.HYPOTHESES).read_bytes())
-        self.assertEqual(len(rank._jsonl(self.run / rank.COMPARISONS)), 1)
+        self.assertEqual(len(rank._jsonl(self.run / rank.VERDICTS)), 1)
+        self.assertFalse((self.run / rank.COMPARISONS).exists())
+
+    def test_ranking_judges_each_pair_in_both_orders_in_separate_requests(self):
+        self.generate()
+        first = council.prepare(self.run, "ranking", seed=7)
+        pair = first["input"]["pair"]
+        council.accept(self.run, first["request_id"], {"pair_id": pair["pair_id"], "winner": "A",
+                                                        "judgment": "A fits the file."})
+        second = council.prepare(self.run, "ranking", seed=8)
+        swapped = second["input"]["pair"]
+        self.assertNotEqual(second["request_id"], first["request_id"])
+        self.assertEqual((swapped["pair_id"], swapped["order"]), (pair["pair_id"], 2))
+        self.assertEqual((swapped["A"], swapped["B"]), (pair["B"], pair["A"]))
+        out = council.accept(self.run, second["request_id"], {"pair_id": pair["pair_id"], "winner": "A",
+                                                             "judgment": "A fits the file."})
+        self.assertEqual(out, self.run / rank.COMPARISONS)
+        line = rank._jsonl(out)[0]
+        self.assertEqual((line["winner"], line["split"]), ("draw", True))
+
+    def test_a_verdict_written_after_prepare_makes_the_ranking_reply_stale(self):
+        self.generate()
+        packet = council.prepare(self.run, "ranking", seed=7)
+        with (self.run / rank.VERDICTS).open("a", encoding="utf-8") as fh:
+            fh.write("{}\n")
+        with self.assertRaisesRegex(ValueError, "stale"):
+            council.accept(self.run, packet["request_id"], {"pair_id": packet["input"]["pair"]["pair_id"],
+                                                            "winner": "A", "judgment": "x"})
 
     def test_a_ranking_reply_is_not_refused_for_the_case_of_its_winner(self):
         self.generate()
@@ -112,6 +140,8 @@ class CouncilRuntimeTests(unittest.TestCase):
         reply = {"pair_id": packet["input"]["pair"]["pair_id"], "winner": "a",
                  "judgment": "Fixture comparison, not verification."}
         council.accept(self.run, packet["request_id"], reply)
+        packet = council.prepare(self.run, "ranking", seed=8)
+        council.accept(self.run, packet["request_id"], dict(reply, winner="b"))
         stored = rank._jsonl(self.run / rank.COMPARISONS)
         self.assertEqual(len(stored), 1)
         self.assertEqual(stored[0]["winner"], "A")

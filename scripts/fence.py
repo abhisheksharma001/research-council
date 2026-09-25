@@ -13,11 +13,12 @@ meta-review, nothing for reflection, ranking, code-reviewer and code-thinker. Ev
 new, changed or removed file is printed as `violation: <role> wrote <file>` (or `removed`),
 one `note` naming them is appended to journal.jsonl, and the exit code is 2. Exit 0 when clean.
 
-`journal.jsonl`, `judge.jsonl`, `pairs.jsonl`, `comparisons.jsonl` and the `fence/` folder
-are written by the Supervisor's own scripts and by nothing else, so they are never compared:
-a pair drawn or a result recorded while a role is out is the Supervisor's own work, not the
-role's. The script deletes nothing: the Supervisor decides what to do with a violating
-file. The run folder holds goal.json (research run) or task.json (code-writer-council task).
+`journal.jsonl`, `judge.jsonl`, `pairs.jsonl`, `verdicts.jsonl`, `comparisons.jsonl` and the
+`fence/` folder are written by the Supervisor's own scripts and by nothing else, so they are
+never compared: a pair drawn or a result recorded while a role is out is the Supervisor's own
+work, not the role's. The script deletes nothing: the Supervisor decides what to do with a
+violating file. The run folder holds goal.json (research run) or task.json
+(code-writer-council task).
 
 Exit 0 clean, 1 bad input or missing snapshot, 2 violation.
 """
@@ -39,7 +40,7 @@ ALLOWED = {
     "code-reviewer": set(),
     "code-thinker": set(),
 }
-SKIP = {journal.FILENAME, "judge.jsonl", "pairs.jsonl", "comparisons.jsonl"}
+SKIP = {journal.FILENAME, "judge.jsonl", "pairs.jsonl", "verdicts.jsonl", "comparisons.jsonl"}
 FENCE_DIR = "fence"
 
 

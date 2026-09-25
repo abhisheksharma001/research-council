@@ -96,6 +96,7 @@ class FenceTests(unittest.TestCase):
     def test_tournament_files_written_during_a_spawn_are_never_compared(self):
         fence.snapshot(self.run, "ranking")
         (self.run / "pairs.jsonl").write_text('{"pair_id": "P-1", "a": "H1", "b": "H2"}\n')
+        (self.run / "verdicts.jsonl").write_text('{"pair_id": "P-1", "order": 1}\n')
         (self.run / "comparisons.jsonl").write_text('{"pair_id": "P-1", "winner": "A"}\n')
         self.assertEqual(fence.violations(self.run, "ranking"), [])
         self.assertEqual(self.cli("check", "ranking").returncode, 0)
