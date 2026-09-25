@@ -10,11 +10,17 @@ objections.json (optional, saved from the Reflection role) and the spend line fr
 heading or gloss from this file, or text copied from one of those records. Nothing
 is summarised, inferred, or reworded.
 
-FINDINGS.md sections: What you asked; What we found; Unreviewed (objections file unreadable),
+FINDINGS.md sections: What you asked; What we found (Observed, Inferred, and Predicted when
+any, by claim_type); Unreviewed (objections file unreadable),
 only when there is one; Disputed; Unverified; Superseded; How sure;
 What we tried that did not work; What is still unknown; What to build now; Spend.
-HANDOFF.md sections: Goal; Chosen approach (with the Elo table); Acceptance;
+HANDOFF.md sections: Goal; Chosen approach (with the Elo table); Strongest dissent; Acceptance;
 Files likely touched; Must not.
+
+Strongest dissent names the highest-rated other open hypothesis when it sits within TIE Elo
+points of the chosen one (the tie rule in curiosity.md), and the unresolved blocking objection
+naming the most claims that are not superseded, first in file order on a tie. It lives in
+HANDOFF.md because a rating never enters FINDINGS.md.
 
 A claim with no evidence ids appears only under "Unverified" (CLAUDE.md invariant 2).
 A claim superseded by a later claim (claims.py supersede) appears only under "Superseded".
@@ -43,6 +49,7 @@ FINDINGS = "FINDINGS.md"
 OBJECTIONS = "objections.json"
 HANDOFF = "HANDOFF.md"
 REFUTED = "refuted"
+TIE = 16
 GLOSS = {
     "observed": "seen directly in a record",
     "inferred": "follows from records, not seen directly",
@@ -69,6 +76,12 @@ FIXED = {
     "elo_gloss": "Elo is a rating moved only by head-to-head comparisons; it orders what to "
                  "investigate, it does not verify anything.",
     "beat_none": "Beat: no pair judged against it.",
+    "dissent_intro": "The best case against the chosen approach that the records still hold.",
+    "rival": f"Rival within {TIE} Elo points:",
+    "rival_none": f"No other open hypothesis within {TIE} Elo points of the chosen one.",
+    "objection": "Unresolved blocking objection",
+    "objection_none": "No unresolved blocking objection.",
+    "resolve_with": "Resolve with:",
     "ears_intro": "One sentence per success criterion, in the form WHEN ... THEN ... SHALL.",
     "table_header": rank.table({"hypotheses": []}),
 }
@@ -174,6 +187,18 @@ def beaten(run, chosen, hyps):
     return ranked[0] if ranked else None
 
 
+def dissent(hyps, items, cl):
+    """((rival, its gap in Elo, the chosen id) or None; top unresolved blocking objection or None)."""
+    ranked = _ranked([h for h in hyps if h.get("status") == rank.ELIGIBLE_STATUS])
+    rival = None
+    if len(ranked) > 1 and ranked[0]["elo"] - ranked[1]["elo"] <= TIE:
+        rival = (ranked[1], ranked[0]["elo"] - ranked[1]["elo"], ranked[0]["id"])
+    live = {c["claim_id"] for c in cl if not c.get("superseded_by")}
+    open_ = [(len(set(o["claim_ids"]) & live), -i, o) for i, o in enumerate(items) if o["blocking"]]
+    open_ = [entry for entry in open_ if entry[0]]
+    return rival, (max(open_, key=lambda e: e[:2])[2] if open_ else None)
+
+
 def _evidence_ref(ev, eid):
     r = ev[eid]
     return f"[{eid}] {r['title']}, {r['locator']}"
@@ -196,9 +221,16 @@ def findings(run):
     out += ["## What you asked", "", g["request_text"], "", f"Wanted: {g['desired_outcome']}", ""]
     out += ["## What we found", "", FIXED["found_intro"], ""]
     if verified:
-        for c in verified:
-            refs = "; ".join(_evidence_ref(ev, e) for e in c["evidence_ids"])
-            out += [f"**{c['claim_id']}** {c['statement']} Evidence: {refs}.", ""]
+        for kind in GLOSS:
+            typed = [c for c in verified if c["claim_type"] == kind]
+            if not typed and kind == "predicted":
+                continue
+            out += [f"### {kind.capitalize()} ({GLOSS[kind]})", ""]
+            for c in typed:
+                refs = "; ".join(_evidence_ref(ev, e) for e in c["evidence_ids"])
+                out += [f"**{c['claim_id']}** {c['statement']} Evidence: {refs}.", ""]
+            if not typed:
+                out += [NONE, ""]
     else:
         out += [NONE, ""]
     if unreviewed:
@@ -252,6 +284,20 @@ def handoff(run):
         out += [NONE, ""]
     if hyps:
         out += ["```", rank.table({"hypotheses": hyps}), "```", ""]
+    items, note = _review_records(run)
+    rival, objection = dissent(hyps, items, cl)
+    out += ["## Strongest dissent", "", FIXED["dissent_intro"], ""]
+    out += [f"{FIXED['rival']} {rival[0]['id']} {rival[0]['statement']} "
+            f"({round(rival[1])} points behind {rival[2]})" if rival else FIXED["rival_none"], ""]
+    if note:
+        out += [note, ""]
+    elif objection:
+        text = objection.get("text")
+        text = f" {text}" if isinstance(text, str) and text.strip() else ""
+        out += [f"{FIXED['objection']} {objection['id']} on {', '.join(objection['claim_ids'])}:"
+                f"{text} {FIXED['resolve_with']} {objection['resolve_with']}", ""]
+    else:
+        out += [FIXED["objection_none"], ""]
     out += ["## Acceptance", "", FIXED["ears_intro"], ""]
     for c in g["success_criteria"]:
         out += [_ears(c), ""]
@@ -309,6 +355,12 @@ def structured_handoff(run):
     if ranked:
         next_investigation = {"hypothesis_id": ranked[0]["id"], "statement": ranked[0]["statement"],
                               "selection_basis": "elo_scheduling_only", "verified_solution": False}
+    rival, objection = dissent(hyps, review, cl)
+    strongest_dissent = {
+        "rival": {"hypothesis_id": rival[0]["id"], "statement": rival[0]["statement"],
+                  "elo_gap": rival[1]} if rival else None,
+        "objection": objection,
+    }
     review_status = "recorded" if note is None else "missing" if note == FIXED["no_objections_file"] else "invalid"
     return {
         "schema_version": 1,
@@ -324,6 +376,7 @@ def structured_handoff(run):
         "evidence": [{key: record[key] for key in ("evidence_id", *evidence.USER_FIELDS, "retrieved_at", "sha256")}
                      for record in ev.values()],
         "next_investigation": next_investigation,
+        "strongest_dissent": strongest_dissent,
         "unknowns": g["unknowns"],
         "sparks": sparks,
         "meta_review": (run / "meta.md").read_text(encoding="utf-8") if (run / "meta.md").exists() else None,

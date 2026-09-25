@@ -147,6 +147,90 @@ class ReportTests(unittest.TestCase):
         self.assertIn("3/200 actions, 1/4 subagents, ~$0.40/$5 (unmetered: 1)", body)
 
     # must not: every line traceable to a record or to fixed text in report.py
+    # S-79: What we found split by claim_type; Strongest dissent in HANDOFF.md
+    def found(self):
+        return sections(report.findings(self.run))["What we found"]
+
+    def dissent(self):
+        return sections(report.handoff(self.run))["Strongest dissent"]
+
+    def set_hyps(self, **elo_status):
+        doc = json.loads((self.run / "hypotheses.json").read_text(encoding="utf-8"))
+        for h in doc["hypotheses"]:
+            if h["id"] in elo_status:
+                h.update(elo_status[h["id"]])
+        (self.run / "hypotheses.json").write_text(json.dumps(doc), encoding="utf-8")
+
+    def objections_file(self, *items):
+        body = {"objections": [{"id": oid, "claim_ids": list(cids), "blocking": blocking,
+                                "text": f"text of {oid}", "resolve_with": f"fix for {oid}"}
+                               for oid, cids, blocking in items]}
+        (self.run / "objections.json").write_text(json.dumps(body), encoding="utf-8")
+
+    def test_findings_split_observed_from_inferred_by_claim_type(self):
+        body = self.found()
+        observed, inferred = body.index("### Observed ("), body.index("### Inferred (")
+        self.assertLess(observed, body.index("**C-1**"))
+        self.assertLess(body.index("**C-1**"), inferred)
+        self.assertLess(inferred, body.index("**C-2**"))
+        self.assertNotIn("### Predicted", body)
+
+    def test_an_empty_type_says_none_and_predicted_appears_only_when_backed(self):
+        lines = (self.run / "claims.jsonl").read_text(encoding="utf-8").splitlines()
+        c1 = json.loads(lines[0])
+        c1.update(claim_type="predicted")
+        c3 = json.loads(lines[2])
+        c3.update(evidence_ids=["E-1"])
+        (self.run / "claims.jsonl").write_text("\n".join([json.dumps(c1), lines[1], json.dumps(c3)]) + "\n",
+                                                encoding="utf-8")
+        body = self.found()
+        observed = body.split("### Observed (")[1].split("###")[0]
+        self.assertIn(report.NONE, observed)
+        predicted = body.split("### Predicted (")[1]
+        self.assertIn("**C-1**", predicted)
+        self.assertIn("**C-3**", predicted)
+
+    def test_rival_within_the_tie_is_named_and_one_point_more_is_not(self):
+        self.assertIn(f"{report.FIXED['rival']} H1 ", self.dissent())
+        self.assertIn("(16 points behind H2)", self.dissent())
+        self.set_hyps(H1={"elo": 1191.0})
+        self.assertIn(report.FIXED["rival_none"], self.dissent())
+
+    def test_rival_is_open_and_best_rated_after_the_chosen(self):
+        self.set_hyps(H1={"elo": 1200.0, "status": "stopped"}, H3={"elo": 1195.0, "status": "open"})
+        self.assertIn(f"{report.FIXED['rival']} H3 ", self.dissent())
+        self.set_hyps(H1={"elo": 1200.0, "status": "open"})
+        self.assertIn(f"{report.FIXED['rival']} H1 ", self.dissent())
+        self.set_hyps(H1={"status": "refuted"}, H3={"status": "refuted"})
+        self.assertIn(report.FIXED["rival_none"], self.dissent())
+
+    def test_objection_is_blocking_unresolved_and_names_the_most_live_claims(self):
+        self.assertIn(report.FIXED["objection_none"], self.dissent())  # fixture: non-blocking only
+        claims.supersede(self.run, "C-1", "C-2", "C-2 is the better record")
+        self.objections_file(("O-1", ["C-2"], True), ("O-2", ["C-1"], True),
+                             ("O-3", ["C-1", "C-3"], True), ("O-4", ["C-2", "C-3"], False),
+                             ("O-5", ["C-2", "C-3"], True))
+        body = self.dissent()
+        self.assertIn(f"{report.FIXED['objection']} O-5 on C-2, C-3: text of O-5 "
+                      f"{report.FIXED['resolve_with']} fix for O-5", body)
+        self.objections_file(("O-2", ["C-1"], True), ("O-6", ["C-3"], True), ("O-7", ["C-2"], True))
+        self.assertIn(f"{report.FIXED['objection']} O-6 ", self.dissent())  # tie: first in file
+        self.objections_file(("O-2", ["C-1"], True))  # only a superseded claim: resolved
+        self.assertIn(report.FIXED["objection_none"], self.dissent())
+
+    def test_an_unreadable_objections_file_is_said_not_ignored(self):
+        (self.run / "objections.json").write_text("{", encoding="utf-8")
+        self.assertIn(report.FIXED["bad_objections_file"], self.dissent())
+
+    def test_dissent_stays_out_of_findings_and_matches_the_json(self):
+        self.objections_file(("O-1", ["C-2"], True))
+        self.assertNotIn("Strongest dissent", report.findings(self.run))
+        self.assertNotIn("Elo points", report.findings(self.run))
+        data = report.structured_handoff(self.run)["strongest_dissent"]
+        self.assertEqual(data["rival"], {"hypothesis_id": "H1", "elo_gap": 16.0,
+                                         "statement": rank.load(self.run)["hypotheses"][0]["statement"]})
+        self.assertEqual(data["objection"]["id"], "O-1")
+
     def test_every_line_traceable_to_records_or_fixed_text(self):
         g = json.loads((self.run / "goal.json").read_text(encoding="utf-8"))
         hyps = json.loads((self.run / "hypotheses.json").read_text(encoding="utf-8"))["hypotheses"]

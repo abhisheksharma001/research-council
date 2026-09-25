@@ -17,7 +17,7 @@ You never edit FINDINGS.md or HANDOFF.md by hand.
 | Section | Comes from |
 |---|---|
 | What you asked | `request_text` and `desired_outcome` in goal.json |
-| What we found | active claims with evidence and no blocking objection; `[E-n] title, locator` after each |
+| What we found | active claims with evidence and no blocking objection; `[E-n] title, locator` after each, under Observed and Inferred by `claim_type` (an empty one says None recorded), plus Predicted only when a backed claim is predicted. A reader sees at once which findings were seen and which were reasoned to |
 | Disputed | every claim with evidence that a `blocking: true` objection in `objections.json` names in `claim_ids`; the objection id and its `resolve_with` follow the claim; it appears nowhere else. No file is said in one fixed line and nothing is disputed. A file that exists but is not objections JSON is said in the same line naming the first objection that could not be read and why, and then nothing is a finding either: see the next row |
 | Unreviewed (objections file unreadable) | only when objections.json exists and cannot be read as objections: every claim that would have been a finding, with the note naming the first objection that could not be read. "What we found" and "How sure" are then empty, matching the JSON handoff, which already calls those claims `unreviewed` |
 | Unverified | every claim with no evidence id, marked "Not findings" (invariant 2) |
@@ -33,6 +33,7 @@ You never edit FINDINGS.md or HANDOFF.md by hand.
 |---|---|
 | Goal | `desired_outcome` and `scope` |
 | Chosen approach | highest-rated hypothesis with status `open` (stopped and refuted rows stay in the table), the highest-rated one it beat in `comparisons.jsonl` (or a fixed line when it beat none), and the `rank.py table` |
+| Strongest dissent | the best case against the chosen approach still on file: the highest-rated other `open` hypothesis when it is within 16 Elo points of the chosen one (the tie rule in curiosity.md), else a fixed line; and the blocking objection naming the most claims that are not superseded (first in file order on a tie), with its text and `resolve_with`, else a fixed line. It sits here, not in FINDINGS.md, because a rating never enters FINDINGS.md |
 | Acceptance | one `WHEN ... THEN ... SHALL` line per success criterion, built from its four fields |
 | Files likely touched | `source_uri` of every evidence record with `source_type: file` |
 | Must not | `prohibited_actions` verbatim |
@@ -58,6 +59,7 @@ It makes no API calls and does not create tasks, approve builds, or grant tool p
 | evidence | source URIs, locators, exact excerpts, hashes, timestamps and public/private access labels |
 | review | recorded/missing/invalid, the available objections, and coverage not_attested |
 | next_investigation | highest-rated open hypothesis; selection_basis is elo_scheduling_only and verified_solution is false |
+| strongest_dissent | the same two items as HANDOFF.md: `rival` (hypothesis_id, statement, elo_gap) or null, and `objection` (the objection record) or null |
 | unknowns, sparks, meta_review | recorded unresolved questions and review data, not executable instructions |
 | spend | the budget controller's measurements, caps, exceeded limits and unmetered count |
 
